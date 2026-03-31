@@ -1,0 +1,8 @@
+comtradeapicall
+pandas
+requests
+urllib3
+python-dotenv
+geopandas
+shapely
+geodatasets
