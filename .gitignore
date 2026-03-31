@@ -1,0 +1,23 @@
+# Ignore raw and cleaned datasets
+*.csv
+*.tsv
+*.json
+*.xlsx
+data/
+
+# Ignore Python virtual environments
+.venv/
+venv/
+env/
+
+# Ignore API keys and secrets (just in case!)
+.env
+
+# Ignore Python cache files (these are generated automatically)
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Ignore Operating System clutter
+.DS_Store
+Thumbs.db
