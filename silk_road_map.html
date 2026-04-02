@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silk Road — Textile Trade Map</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
+body { background: #f5f5f3; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+
+#sr { display: grid; grid-template-columns: 1fr 244px; grid-template-rows: 46px 1fr; height: 590px; width: 100%; max-width: 1000px; border: 0.5px solid #ddd; border-radius: 12px; overflow: hidden; background: #fff; }
+#sr-hd { grid-column: 1 / -1; background: #fff; border-bottom: 0.5px solid #e5e5e5; display: flex; align-items: center; gap: 8px; padding: 0 12px; overflow: hidden; }
+#sr-title { font-size: 13px; font-weight: 500; color: #111; white-space: nowrap; margin-right: 2px; flex-shrink: 0; }
+#fab-row { display: flex; gap: 4px; overflow: hidden; flex: 1; }
+.fab-btn { padding: 3px 8px; font-size: 11px; font-weight: 500; border-radius: 4px; border: 0.5px solid; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; background: transparent; flex-shrink: 0; }
+.fab-btn.off { opacity: 0.28; }
+#mode-row { display: flex; gap: 3px; flex-shrink: 0; }
+.mode-btn { padding: 3px 7px; font-size: 11px; border-radius: 4px; border: 0.5px solid #ccc; cursor: pointer; background: transparent; color: #666; transition: all 0.15s; white-space: nowrap; }
+.mode-btn.on { background: #f0f0ee; color: #111; border-color: #999; }
+
+#sr-map { position: relative; overflow: hidden; background: #dce9e4; }
+#sr-map-svg { width: 100%; height: 100%; display: block; }
+.land { stroke: #fff; stroke-width: 0.4; fill: #c5dbd2; }
+
+.route-bg { fill: none; stroke-linecap: round; cursor: pointer; opacity: 0.55; transition: opacity 0.2s; }
+.route-bg:hover { opacity: 1; }
+.route-bg.sel { opacity: 1; }
+.route-bg.dim { opacity: 0.07; }
+.route-flow { fill: none; stroke-linecap: round; pointer-events: none; }
+.nd { stroke: #fff; stroke-width: 1.5; pointer-events: none; }
+.nd-lbl { font-size: 9.5px; fill: #555; pointer-events: none; }
+
+#tip { position: absolute; background: #fff; border: 0.5px solid #ccc; border-radius: 8px; padding: 6px 10px; font-size: 11px; pointer-events: none; opacity: 0; transition: opacity 0.12s; max-width: 190px; z-index: 10; line-height: 1.5; }
+#loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; color: #888; text-align: center; }
+
+#sr-panel { background: #fff; border-left: 0.5px solid #e5e5e5; overflow-y: auto; padding: 13px; display: flex; flex-direction: column; gap: 12px; }
+.plbl { font-size: 10px; font-weight: 500; letter-spacing: 0.07em; color: #999; text-transform: uppercase; margin-bottom: 5px; }
+.scard { background: #f5f5f3; border-radius: 8px; padding: 10px 11px; }
+.snum { font-size: 20px; font-weight: 500; color: #111; line-height: 1.2; }
+.ssub { font-size: 11px; color: #888; margin-top: 2px; }
+.barwrap { background: #e0e0de; border-radius: 3px; height: 5px; margin-top: 7px; overflow: hidden; }
+.bar { height: 100%; border-radius: 3px; transition: width 0.5s; }
+#empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #aaa; font-size: 12px; text-align: center; padding: 16px; line-height: 1.6; }
+#detail { display: none; flex-direction: column; gap: 12px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 8px; }
+.ml { font-size: 10px; color: #aaa; }
+.mv { font-size: 13px; font-weight: 500; color: #111; margin-top: 1px; }
+.hook-note { font-size: 10px; color: #aaa; line-height: 1.6; border-top: 0.5px solid #e5e5e5; padding-top: 10px; }
+.hook-note code { font-family: monospace; font-size: 9.5px; background: #f0f0ee; padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="sr">
+  <div id="sr-hd">
+    <span id="sr-title">Silk Road</span>
+    <div id="fab-row"></div>
+    <div id="mode-row"></div>
+  </div>
+  <div id="sr-map">
+    <svg id="sr-map-svg"></svg>
+    <div id="tip"></div>
+    <div id="loading">Loading world map…</div>
+  </div>
+  <div id="sr-panel">
+    <div id="empty">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" style="opacity:0.35">
+        <circle cx="14" cy="14" r="12" stroke="#888" stroke-width="1.5"/>
+        <path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#888" stroke-width="1.2" fill="none"/>
+      </svg>
+      <div>Click any route on the map to explore its carbon footprint</div>
+    </div>
+    <div id="detail">
+      <div>
+        <div class="plbl">Selected route</div>
+        <div id="d-name" style="font-size:14px;font-weight:500;line-height:1.3;"></div>
+        <div id="d-meta" style="font-size:11px;color:#888;margin-top:3px;"></div>
+      </div>
+      <div>
+        <div class="plbl">Carbon footprint</div>
+        <div class="scard">
+          <div id="d-co2" class="snum"></div>
+          <div class="ssub">kg CO₂e total</div>
+          <div class="barwrap"><div id="d-bar" class="bar"></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="plbl">Route details</div>
+        <div class="scard">
+          <div class="g2">
+            <div><div class="ml">Distance</div><div id="d-dist" class="mv"></div></div>
+            <div><div class="ml">Transport</div><div id="d-mode" class="mv"></div></div>
+            <div style="margin-top:6px;"><div class="ml">Material</div><div id="d-fab" class="mv"></div></div>
+            <div style="margin-top:6px;"><div class="ml">Est. volume</div><div id="d-vol" class="mv"></div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="plbl">Mode comparison (same route)</div>
+        <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div class="hook-note">
+        <b>When Maya finishes clean_data.py:</b><br>
+        Replace <code>ROUTES[]</code> with her Comtrade data.<br>
+        Replace <code>calcCarbon()</code> with Malik's engine.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<script>
+
+// ═══════════════════════════════════════════════════════════════════
+// HOOK #1 · Maya / Cole
+// Swap this ROUTES array when clean_data.py is finished.
+// ═══════════════════════════════════════════════════════════════════
+const ROUTES = [
+  { id:1,  fabric:'cotton',    from:'India',       to:'USA',       fromCoords:[78.9,20.6],   toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:450000 },
+  { id:2,  fabric:'cotton',    from:'Bangladesh',  to:'Germany',   fromCoords:[90.4,23.7],   toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:380000 },
+  { id:3,  fabric:'cotton',    from:'Pakistan',    to:'Germany',   fromCoords:[69.3,30.4],   toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:290000 },
+  { id:4,  fabric:'cotton',    from:'USA',         to:'China',     fromCoords:[-95.7,37.1],  toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:520000 },
+  { id:5,  fabric:'cotton',    from:'Brazil',      to:'China',     fromCoords:[-51.9,-14.2], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:210000 },
+  { id:6,  fabric:'cotton',    from:'Turkey',      to:'Germany',   fromCoords:[35.2,38.9],   toCoords:[10.5,51.2],   mode:'Road',  volume_tonnes:160000 },
+  { id:7,  fabric:'polyester', from:'China',       to:'USA',       fromCoords:[104.2,35.9],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:820000 },
+  { id:8,  fabric:'polyester', from:'China',       to:'Germany',   fromCoords:[104.2,35.9],  toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:540000 },
+  { id:9,  fabric:'polyester', from:'Vietnam',     to:'USA',       fromCoords:[108.3,14.1],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:310000 },
+  { id:10, fabric:'polyester', from:'South Korea', to:'USA',       fromCoords:[127.8,36.5],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:190000 },
+  { id:11, fabric:'polyester', from:'China',       to:'Japan',     fromCoords:[104.2,35.9],  toCoords:[138.3,36.2],  mode:'Ocean', volume_tonnes:240000 },
+  { id:12, fabric:'silk',      from:'China',       to:'Italy',     fromCoords:[104.2,35.9],  toCoords:[12.6,42.5],   mode:'Ocean', volume_tonnes:28000  },
+  { id:13, fabric:'silk',      from:'China',       to:'Germany',   fromCoords:[104.2,35.9],  toCoords:[10.5,51.2],   mode:'Air',   volume_tonnes:8000   },
+  { id:14, fabric:'silk',      from:'India',       to:'Italy',     fromCoords:[78.9,20.6],   toCoords:[12.6,42.5],   mode:'Ocean', volume_tonnes:14000  },
+  { id:15, fabric:'wool',      from:'Australia',   to:'China',     fromCoords:[133.8,-25.3], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:175000 },
+  { id:16, fabric:'wool',      from:'Australia',   to:'Germany',   fromCoords:[133.8,-25.3], toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:92000  },
+  { id:17, fabric:'wool',      from:'New Zealand', to:'China',     fromCoords:[172.5,-40.9], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:68000  },
+  { id:18, fabric:'nylon',     from:'China',       to:'USA',       fromCoords:[104.2,35.9],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:280000 },
+  { id:19, fabric:'nylon',     from:'Taiwan',      to:'USA',       fromCoords:[120.9,23.7],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:140000 },
+  { id:20, fabric:'nylon',     from:'South Korea', to:'Germany',   fromCoords:[127.8,36.5],  toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:110000 },
+];
+
+// ═══════════════════════════════════════════════════════════════════
+// HOOK #2 · Malik
+// Replace this function body with the real carbon engine when ready.
+// ═══════════════════════════════════════════════════════════════════
+const EMISSION_FACTORS = { Ocean: 0.000015, Air: 0.00109, Road: 0.000105, Rail: 0.000022 };
+
+function calcCarbon(distKm, mode, tonnes) {
+  const weightKg = tonnes * 1000;
+  return Math.round(weightKg * distKm * (EMISSION_FACTORS[mode] || EMISSION_FACTORS.Ocean));
+}
+
+// ── Config ── // 
+const FABRICS = {
+  cotton:    { label:'Cotton',    color:'#1D9E75' },
+  polyester: { label:'Polyester', color:'#378ADD' },
+  silk:      { label:'Silk',      color:'#C07B10' },
+  wool:      { label:'Wool',      color:'#D85A30' },
+  nylon:     { label:'Nylon',     color:'#C04070' },
+  viscose:   { label:'Viscose',   color:'#7B52AB' },
+  linen:     { label:'Linen',     color:'#8B7355' },
+};
+const MODES = { Ocean:'Ship', Air:'Air', Road:'Road', Rail:'Rail' };
+
+// ── State ── // 
+let activeFabs  = new Set(ROUTES.map(r => r.fabric));
+let activeModes = new Set(ROUTES.map(r => r.mode));
+let selRoute = null;
+let rg, ng, proj, pathFn, afId;
+
+// ── Helpers ── // 
+function haversine([lng1,lat1],[lng2,lat2]) {
+  const R=6371, r=Math.PI/180;
+  const a=Math.sin(((lat2-lat1)*r)/2)**2+Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(((lng2-lng1)*r)/2)**2;
+  return Math.round(R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a)));
+}
+function fmtCo2(v) {
+  if(v>=1e9) return (v/1e9).toFixed(2)+'B';
+  if(v>=1e6) return (v/1e6).toFixed(2)+'M';
+  if(v>=1e3) return (v/1e3).toFixed(1)+'K';
+  return Math.round(v).toString();
+}
+
+const maxCo2 = Math.max(...ROUTES.map(r =>
+  calcCarbon(haversine(r.fromCoords,r.toCoords), r.mode, r.volume_tonnes)
+));
+
+// ── Header controls ── // 
+[...new Set(ROUTES.map(r=>r.fabric))].filter(f=>FABRICS[f]).forEach(k => {
+  const m=FABRICS[k], b=document.createElement('button');
+  b.className='fab-btn'; b.textContent=m.label;
+  b.style.cssText=`color:${m.color};border-color:${m.color};background:${m.color}1e;`;
+  b.onclick=()=>{
+    if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
+    else{activeFabs.add(k);b.classList.remove('off');}
+    renderRoutes();
+  };
+  document.getElementById('fab-row').appendChild(b);
+});
+
+[...new Set(ROUTES.map(r=>r.mode))].filter(m=>MODES[m]).forEach(k => {
+  const b=document.createElement('button');
+  b.className='mode-btn on'; b.textContent=MODES[k];
+  b.onclick=()=>{
+    if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
+    else{activeModes.add(k);b.classList.add('on');}
+    renderRoutes();
+  };
+  document.getElementById('mode-row').appendChild(b);
+});
+
+// ── Render ── // 
+function renderRoutes() {
+  if(!rg||!ng) return;
+  if(afId) cancelAnimationFrame(afId);
+  rg.selectAll('*').remove(); ng.selectAll('*').remove();
+
+  const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const nodes=new Map();
+  vis.forEach(r=>{nodes.set(r.from,r.fromCoords);nodes.set(r.to,r.toCoords);});
+
+  vis.forEach(r=>{
+    const color=FABRICS[r.fabric].color;
+    const isSel=selRoute?.id===r.id, isDim=selRoute&&selRoute.id!==r.id;
+    const geo={type:'Feature',geometry:{type:'LineString',coordinates:[r.fromCoords,r.toCoords]}};
+    rg.append('path').datum(r)
+      .attr('class',`route-bg${isSel?' sel':''}${isDim?' dim':''}`)
+      .attr('d',pathFn(geo)).attr('stroke',color).attr('stroke-width',isSel?3.5:2.5)
+      .on('mouseover',(ev,d)=>showTip(ev,d)).on('mouseout',()=>hideTip()).on('click',(ev,d)=>selectRoute(d));
+  });
+
+  const fp=[];
+  vis.forEach((r,i)=>{
+    const color=FABRICS[r.fabric].color;
+    const isSel=selRoute?.id===r.id, isDim=selRoute&&selRoute.id!==r.id;
+    const geo={type:'Feature',geometry:{type:'LineString',coordinates:[r.fromCoords,r.toCoords]}};
+    const el=rg.append('path').attr('class','route-flow').attr('d',pathFn(geo))
+      .attr('stroke',color).attr('stroke-width',isSel?4:2.5).attr('opacity',isDim?0:0.9).node();
+    const len=el.getTotalLength();
+    el.setAttribute('stroke-dasharray',`${Math.max(16,len*0.09)} ${Math.max(36,len*0.28)}`);
+    fp.push({el,len,speed:32+(i%8)*7,offset:Math.random()*len});
+  });
+  function tick(){fp.forEach(p=>{p.offset=(p.offset+p.speed/60)%p.len;p.el.setAttribute('stroke-dashoffset',-p.offset);});afId=requestAnimationFrame(tick);}
+  tick();
+
+  nodes.forEach((coords,name)=>{
+    const pt=proj(coords); if(!pt||isNaN(pt[0])) return;
+    const fabs=[...new Set(vis.filter(r=>r.from===name||r.to===name).map(r=>r.fabric))];
+    const color=fabs.length===1?FABRICS[fabs[0]].color:'#888';
+    ng.append('circle').attr('class','nd').attr('cx',pt[0]).attr('cy',pt[1]).attr('r',3.5).attr('fill',color);
+    ng.append('text').attr('class','nd-lbl').attr('x',pt[0]+6).attr('y',pt[1]+1).attr('dominant-baseline','middle').text(name);
+  });
+}
+
+// ── Tooltip ── // 
+const tipEl=document.getElementById('tip');
+function showTip(ev,r){
+  const dist=haversine(r.fromCoords,r.toCoords);
+  const co2=calcCarbon(dist,r.mode,r.volume_tonnes);
+  const color=FABRICS[r.fabric].color;
+  tipEl.innerHTML=`<span style="font-weight:500;color:${color}">${r.from} → ${r.to}</span><br>${FABRICS[r.fabric].label} · ${MODES[r.mode]}<br>${fmtCo2(co2)} kg CO₂e`;
+  const box=document.getElementById('sr-map').getBoundingClientRect();
+  tipEl.style.left=Math.min(ev.clientX-box.left+14,box.width-200)+'px';
+  tipEl.style.top=Math.min(ev.clientY-box.top+14,box.height-80)+'px';
+  tipEl.style.opacity='1';
+}
+function hideTip(){tipEl.style.opacity='0';}
+
+// ── Side panel ── // 
+function selectRoute(r){
+  selRoute=r; renderRoutes();
+  const dist=haversine(r.fromCoords,r.toCoords);
+  const co2=calcCarbon(dist,r.mode,r.volume_tonnes);
+  const color=FABRICS[r.fabric].color;
+
+  document.getElementById('empty').style.display='none';
+  document.getElementById('detail').style.display='flex';
+  document.getElementById('d-name').textContent=`${r.from} → ${r.to}`;
+  document.getElementById('d-name').style.color=color;
+  document.getElementById('d-meta').textContent=`${FABRICS[r.fabric].label} · via ${MODES[r.mode]}`;
+  document.getElementById('d-co2').textContent=fmtCo2(co2);
+  document.getElementById('d-bar').style.width=Math.round(co2/maxCo2*100)+'%';
+  document.getElementById('d-bar').style.background=color;
+  document.getElementById('d-dist').textContent=dist.toLocaleString()+' km';
+  document.getElementById('d-mode').textContent=MODES[r.mode];
+  document.getElementById('d-fab').textContent=FABRICS[r.fabric].label;
+  document.getElementById('d-vol').textContent=r.volume_tonnes.toLocaleString()+' t';
+
+  const cmpEl=document.getElementById('d-cmp'); cmpEl.innerHTML='';
+  const vals=Object.keys(EMISSION_FACTORS).map(m=>({mode:m,co2:calcCarbon(dist,m,r.volume_tonnes)}));
+  const maxM=Math.max(...vals.map(x=>x.co2));
+  vals.forEach(({mode:m,co2:c})=>{
+    const pct=Math.round(c/maxM*100), active=m===r.mode;
+    const div=document.createElement('div');
+    div.innerHTML=`<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;"><span style="color:#888">${MODES[m]}</span><span style="font-weight:${active?500:400};color:${active?color:'#aaa'};">${fmtCo2(c)} kg</span></div><div style="background:#e0e0de;border-radius:3px;height:4px;overflow:hidden;"><div style="width:${pct}%;height:100%;border-radius:3px;background:${active?color:'#ccc'};"></div></div>`;
+    cmpEl.appendChild(div);
+  });
+}
+
+// ── Load map ── // 
+const mapEl=document.getElementById('sr-map');
+const svg=d3.select('#sr-map-svg');
+const loadEl=document.getElementById('loading');
+
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+  .then(r=>r.json()).then(world=>{
+    const W=mapEl.clientWidth||730, H=mapEl.clientHeight||544;
+    svg.attr('width',W).attr('height',H);
+    proj=d3.geoNaturalEarth1().scale(Math.min(W/5.0,H/3.1)).translate([W/2,H/2]);
+    pathFn=d3.geoPath().projection(proj);
+    svg.append('g').selectAll('path')
+      .data(topojson.feature(world,world.objects.countries).features)
+      .join('path').attr('class','land').attr('d',pathFn);
+    rg=svg.append('g'); ng=svg.append('g');
+    loadEl.style.display='none';
+    renderRoutes();
+  })
+  .catch(()=>{loadEl.textContent='Could not load map — check internet connection.';});
+
+</script>
+</body>
+</html>
