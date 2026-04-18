@@ -1,7 +1,10 @@
 # =============================================================================
 # Silk Road — Data Collection Script
-# Year: 2023 | UN Comtrade Free Tier
+# UN Comtrade Free Tier
 # Captures: origin, destination, weight, mode of transport, HS code
+#
+# YEARS: controls which years are fetched. Data lands in data/raw/<year>/.
+# Raw files are skipped if they already exist, so this is safe to re-run.
 # =============================================================================
 
 import comtradeapicall
@@ -17,10 +20,10 @@ if not API_KEY:
     raise ValueError("Add COMTRADE_API_KEY=your_key to your .env file.")
 
 # --- Config ---
-YEAR       = "2023"
+# Add or remove years to control what gets collected.
+# Free-tier limit: 500 requests/day — with 6 batches × 5 years = 30 requests total.
+YEARS      = ["2019", "2020", "2021", "2022", "2023"]
 BATCH_SIZE = 10
-RAW_DIR    = "data/raw/2023"
-os.makedirs(RAW_DIR, exist_ok=True)
 
 # =============================================================================
 # ALL HS CODES TO COLLECT
@@ -28,7 +31,12 @@ os.makedirs(RAW_DIR, exist_ok=True)
 
 ALL_CODES = [
     # --- Silk (Chapter 50) ---
-    "50",
+    # FIX: chapter-level "50" returns weight=0 aggregates. Use 4-digit codes.
+    "5002",   # Raw silk, not thrown
+    "5003",   # Silk waste
+    "5004",   # Silk yarn, not retail
+    "5005",   # Yarn of silk waste, not retail
+    "5007",   # Woven fabrics of silk or silk waste
 
     # --- Wool & fine animal hair (Chapter 51, specific codes only) ---
     "5101",
@@ -39,7 +47,14 @@ ALL_CODES = [
     "5111", "5115",
 
     # --- Cotton (Chapter 52) ---
-    "52",
+    # FIX: chapter-level "52" returns weight=0 aggregates. Use 4-digit codes.
+    "5201",   # Cotton, not carded or combed
+    "5202",   # Cotton waste
+    "5203",   # Cotton, carded or combed
+    "5205",   # Cotton yarn, ≥85% cotton, not retail
+    "5206",   # Cotton yarn, <85% cotton, not retail
+    "5208",   # Woven fabrics, ≥85% cotton, ≤200 g/m²
+    "5209",   # Woven fabrics, ≥85% cotton, >200 g/m²
 
     # --- Natural / vegetable fibers ---
     "5301",   # Flax, raw or processed
@@ -101,12 +116,12 @@ def batch_list(lst, n):
         yield lst[i:i + n]
 
 
-def fetch_batch(codes, label):
+def fetch_batch(codes, label, year, raw_dir):
     """
-    Call Comtrade for a batch of codes.
+    Call Comtrade for a batch of codes for one year.
     Skips if file already exists on disk — safe to re-run after interruption.
     """
-    filepath = os.path.join(RAW_DIR, f"{label}.csv")
+    filepath = os.path.join(raw_dir, f"{label}.csv")
 
     # Skip if already downloaded
     if os.path.exists(filepath):
@@ -120,11 +135,11 @@ def fetch_batch(codes, label):
 
     try:
         df = comtradeapicall.getFinalData(
-            subscription_key = API_KEY,   # Move the key to the top
+            subscription_key = API_KEY,
             typeCode         = "C",       # Commodities
             freqCode         = "A",       # Annual
             clCode           = "HS",      # HS classification
-            period           = YEAR,
+            period           = year,
             reporterCode     = None,      # All reporting (exporting) countries
             cmdCode          = cmd_string,
             flowCode         = "X",       # Exports — ties record to the origin country
@@ -161,58 +176,38 @@ def fetch_batch(codes, label):
 # MAIN DOWNLOAD LOOP
 # =============================================================================
 
+batches = list(batch_list(ALL_CODES, BATCH_SIZE))
+
 print("=" * 60)
-print(f"  Silk Road — Comtrade Pull  |  Year: {YEAR}")
+print(f"  Silk Road — Comtrade Pull")
+print(f"  Years: {', '.join(YEARS)}  |  {len(ALL_CODES)} codes → {len(batches)} batches")
 print("=" * 60)
 
-batches    = list(batch_list(ALL_CODES, BATCH_SIZE))
-all_frames = []
+for year in YEARS:
+    raw_dir = os.path.join("data", "raw", year)
+    os.makedirs(raw_dir, exist_ok=True)
 
-print(f"\n  {len(ALL_CODES)} codes → {len(batches)} batches of {BATCH_SIZE}\n")
+    print(f"\n── Year {year} ──────────────────────────────────────────")
+    year_frames = []
 
-for i, batch in enumerate(batches):
-    label = f"batch_{i+1:02d}_of_{len(batches):02d}"
-    df = fetch_batch(batch, label)
-    if not df.empty:
-        all_frames.append(df)
+    for i, batch in enumerate(batches):
+        label = f"batch_{i+1:02d}_of_{len(batches):02d}"
+        df = fetch_batch(batch, label, year, raw_dir)
+        if not df.empty:
+            year_frames.append(df)
 
-# =============================================================================
-# COMBINE & SAVE
-# =============================================================================
+    if not year_frames:
+        print(f"  Warning: No data collected for {year}.")
+        continue
 
-print("\n[Combining all batches...]")
+    combined = pd.concat(year_frames, ignore_index=True)
+    combined = combined.drop_duplicates()
 
-if not all_frames:
-    print("Error: No data collected. Check your API key and internet connection.")
-    exit()
+    raw_output = os.path.join(raw_dir, "_combined_raw.csv")
+    combined.to_csv(raw_output, index=False)
 
-combined = pd.concat(all_frames, ignore_index=True)
-print(f"  Rows before deduplication: {len(combined):,}")
-combined = combined.drop_duplicates()
-print(f"  Rows after deduplication:  {len(combined):,}")
-
-# Save the raw combined file
-raw_output = os.path.join(RAW_DIR, "_combined_raw.csv")
-combined.to_csv(raw_output, index=False)
-
-# =============================================================================
-# SUMMARY
-# =============================================================================
+    print(f"\n  {year} complete: {len(combined):,} rows → {raw_output}")
 
 print("\n" + "=" * 60)
-print("  DOWNLOAD COMPLETE")
-print("=" * 60)
-print(f"  Total records:        {len(combined):,}")
-print(f"  Unique HS codes:      {combined['cmdCode'].nunique() if 'cmdCode' in combined.columns else 'N/A'}")
-print(f"  Exporting countries:  {combined['reporterISO'].nunique() if 'reporterISO' in combined.columns else 'N/A'}")
-print(f"  Importing countries:  {combined['partnerISO'].nunique() if 'partnerISO' in combined.columns else 'N/A'}")
-
-# Check what columns came back (useful to know before cleaning)
-print(f"\n  Columns returned by API:")
-for col in combined.columns.tolist():
-    nulls = combined[col].isnull().sum()
-    pct   = nulls / len(combined) * 100
-    print(f"    {col:<30} {nulls:>8,} nulls ({pct:.1f}%)")
-
-print(f"\n  Raw file → {raw_output}")
+print("  ALL YEARS DOWNLOADED")
 print("=" * 60)

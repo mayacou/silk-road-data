@@ -8,12 +8,10 @@ import geodatasets
 # CONFIG
 # =========================================================
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-INPUT_FILE = os.path.join(BASE_DIR, "data", "clean", "silk_road_2023_refined.csv")
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "clean")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "silk_road_2023_with_emissions.csv")
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CLEAN_DIR  = os.path.join(BASE_DIR, "data", "clean")
+MAP_FILE   = os.path.join(BASE_DIR, "data", "ne_110m_countries.zip")
+os.makedirs(CLEAN_DIR, exist_ok=True)
 
 # Project emission factors from README
 # Units: kg CO2e / (kg * km)
@@ -29,19 +27,8 @@ EMISSION_FACTORS = {
 # =========================================================
 
 def load_map():
-    """
-    Uses the same Natural Earth loading strategy as clean_data.py.
-    """
-    for key in ["naturalearth.lowres", "naturalearth.countries"]:
-        try:
-            path = geodatasets.get_path(key)
-            return gpd.read_file(path)
-        except Exception:
-            continue
-
-    print("Downloading map directly from Natural Earth...")
-    url = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
-    return gpd.read_file(url)
+    """Loads the bundled Natural Earth shapefile — no network required."""
+    return gpd.read_file(MAP_FILE)
 
 
 def get_best_iso(row):
@@ -117,68 +104,64 @@ def compute_distance_km(origin_iso, dest_iso, country_ref):
 # MAIN
 # =========================================================
 
-def main():
-    if not os.path.exists(INPUT_FILE):
-        print(f"Error: Could not find {INPUT_FILE}")
+def enrich_year(year: str, country_ref: dict):
+    input_file  = os.path.join(CLEAN_DIR, f"silk_road_{year}_refined.csv")
+    output_file = os.path.join(CLEAN_DIR, f"silk_road_{year}_with_emissions.csv")
+
+    if not os.path.exists(input_file):
+        print(f"  Skipping {year} — refined file not found: {input_file}")
         return
 
-    print(f"Reading {INPUT_FILE}...")
-    df = pd.read_csv(INPUT_FILE, low_memory=False)
+    print(f"\n── Enriching {year} ──────────────────────────────────────")
+    df = pd.read_csv(input_file, low_memory=False)
 
     required_cols = ["reporterISO", "partnerISO", "Final_Mode", "netWgt"]
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
-        print(f"Error: Missing required columns: {missing_cols}")
+        print(f"  Error: Missing columns: {missing_cols}")
         return
 
-    # Clean key columns
     df["reporterISO"] = df["reporterISO"].astype(str).str.strip().str.upper()
-    df["partnerISO"] = df["partnerISO"].astype(str).str.strip().str.upper()
-    df["Final_Mode"] = df["Final_Mode"].astype(str).str.strip()
-    df["netWgt"] = pd.to_numeric(df["netWgt"], errors="coerce")
+    df["partnerISO"]  = df["partnerISO"].astype(str).str.strip().str.upper()
+    df["Final_Mode"]  = df["Final_Mode"].astype(str).str.strip()
+    df["netWgt"]      = pd.to_numeric(df["netWgt"], errors="coerce")
 
-    # Build country centroid reference
-    country_ref = build_country_centroid_reference()
-    print(f"Built centroid reference for {len(country_ref):,} geographic entities.")
-
-    # Compute distance
-    print("Calculating distances...")
     df["distance_km"] = df.apply(
         lambda row: compute_distance_km(row["reporterISO"], row["partnerISO"], country_ref),
         axis=1
     )
-
-    # Map emission factor
-    print("Mapping emission factors...")
     df["emission_factor_kgco2e_per_kg_km"] = df["Final_Mode"].map(EMISSION_FACTORS)
-
-    # Compute total emissions
-    print("Calculating total emissions...")
     df["total_emissions_kgco2e"] = (
-        df["netWgt"] *
-        df["distance_km"] *
-        df["emission_factor_kgco2e_per_kg_km"]
+        df["netWgt"] * df["distance_km"] * df["emission_factor_kgco2e_per_kg_km"]
     )
-
-    # Optional convenience metric
     df["emissions_per_kg"] = df["total_emissions_kgco2e"] / df["netWgt"]
 
-    # Report missing values from the new calculations
-    missing_distance = df["distance_km"].isna().sum()
-    missing_factor = df["emission_factor_kgco2e_per_kg_km"].isna().sum()
-    print(f"Rows missing distance: {missing_distance:,}")
-    print(f"Rows missing emission factor: {missing_factor:,}")
+    df.to_csv(output_file, index=False)
+    print(f"  {year} done: {len(df):,} rows → {output_file}")
+    print(f"  Missing distance: {df['distance_km'].isna().sum():,}  |  "
+          f"Missing factor: {df['emission_factor_kgco2e_per_kg_km'].isna().sum():,}")
 
-    # Save NEW file
-    df.to_csv(OUTPUT_FILE, index=False)
+
+def main():
+    country_ref = build_country_centroid_reference()
+    print(f"Built centroid reference for {len(country_ref):,} geographic entities.")
+
+    refined_files = sorted([
+        f for f in os.listdir(CLEAN_DIR)
+        if f.startswith("silk_road_") and f.endswith("_refined.csv")
+    ])
+
+    if not refined_files:
+        print(f"No refined CSVs found in {CLEAN_DIR}. Run clean_data.py first.")
+        return
+
+    for fname in refined_files:
+        year = fname.split("_")[2]   # silk_road_YYYY_refined.csv
+        enrich_year(year, country_ref)
 
     print("\n" + "=" * 60)
-    print("DISTANCE + EMISSIONS ENRICHMENT COMPLETE")
+    print("ALL YEARS ENRICHED")
     print("=" * 60)
-    print(f"Input rows:  {len(df):,}")
-    print(f"Saved to:    {OUTPUT_FILE}")
-    print("\nPreview:")
-    print(df.head())
 
 
 if __name__ == "__main__":
