@@ -8,8 +8,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, sans-serif; }
 body { background: #f5f5f3; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
 
-#sr { display: grid; grid-template-columns: 1fr 244px; grid-template-rows: 46px 1fr; height: 590px; width: 100%; max-width: 1000px; border: 0.5px solid #ddd; border-radius: 12px; overflow: hidden; background: #fff; }
+#sr { display: grid; grid-template-columns: 1fr 244px; grid-template-rows: 46px 30px 1fr; height: 620px; width: 100%; max-width: 1000px; border: 0.5px solid #ddd; border-radius: 12px; overflow: hidden; background: #fff; }
 #sr-hd { grid-column: 1 / -1; background: #fff; border-bottom: 0.5px solid #e5e5e5; display: flex; align-items: center; gap: 8px; padding: 0 12px; overflow: hidden; }
+#sr-timeline { grid-column: 1 / -1; background: #fafaf8; border-bottom: 0.5px solid #e5e5e5; display: flex; align-items: center; gap: 4px; padding: 0 12px; overflow: hidden; }
+#yr-label { font-size: 10px; font-weight: 500; letter-spacing: 0.07em; color: #999; text-transform: uppercase; white-space: nowrap; margin-right: 4px; flex-shrink: 0; }
 #sr-title { font-size: 13px; font-weight: 500; color: #111; white-space: nowrap; margin-right: 2px; flex-shrink: 0; }
 #fab-row { display: flex; gap: 4px; overflow: hidden; flex: 1; }
 .fab-btn { padding: 3px 8px; font-size: 11px; font-weight: 500; border-radius: 4px; border: 0.5px solid; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; background: transparent; flex-shrink: 0; }
@@ -17,6 +19,8 @@ body { background: #f5f5f3; display: flex; justify-content: center; align-items:
 #mode-row { display: flex; gap: 3px; flex-shrink: 0; }
 .mode-btn { padding: 3px 7px; font-size: 11px; border-radius: 4px; border: 0.5px solid #ccc; cursor: pointer; background: transparent; color: #666; transition: all 0.15s; white-space: nowrap; }
 .mode-btn.on { background: #f0f0ee; color: #111; border-color: #999; }
+.yr-btn { padding: 2px 8px; font-size: 11px; font-weight: 500; border-radius: 4px; border: 0.5px solid #ccc; cursor: pointer; background: transparent; color: #888; transition: all 0.15s; white-space: nowrap; }
+.yr-btn.on { background: #111; color: #fff; border-color: #111; }
 
 #sr-map { position: relative; overflow: hidden; background: #dce9e4; }
 #sr-map-svg { width: 100%; height: 100%; display: block; }
@@ -56,6 +60,10 @@ body { background: #f5f5f3; display: flex; justify-content: center; align-items:
     <span id="sr-title">Silk Road</span>
     <div id="fab-row"></div>
     <div id="mode-row"></div>
+  </div>
+  <div id="sr-timeline">
+    <span id="yr-label">Year</span>
+    <div id="yr-row"></div>
   </div>
   <div id="sr-map">
     <svg id="sr-map-svg"></svg>
@@ -99,11 +107,6 @@ body { background: #f5f5f3; display: flex; justify-content: center; align-items:
         <div class="plbl">Mode comparison (same route)</div>
         <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
-      <div class="hook-note">
-        <b>When Maya finishes clean_data.py:</b><br>
-        Replace <code>ROUTES[]</code> with her Comtrade data.<br>
-        Replace <code>calcCarbon()</code> with Malik's engine.
-      </div>
     </div>
   </div>
 </div>
@@ -112,37 +115,13 @@ body { background: #f5f5f3; display: flex; justify-content: center; align-items:
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 
-// ═══════════════════════════════════════════════════════════════════
-// HOOK #1 · Maya / Cole
-// Swap this ROUTES array when clean_data.py is finished.
-// ═══════════════════════════════════════════════════════════════════
-const ROUTES = [
-  { id:1,  fabric:'cotton',    from:'India',       to:'USA',       fromCoords:[78.9,20.6],   toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:450000 },
-  { id:2,  fabric:'cotton',    from:'Bangladesh',  to:'Germany',   fromCoords:[90.4,23.7],   toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:380000 },
-  { id:3,  fabric:'cotton',    from:'Pakistan',    to:'Germany',   fromCoords:[69.3,30.4],   toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:290000 },
-  { id:4,  fabric:'cotton',    from:'USA',         to:'China',     fromCoords:[-95.7,37.1],  toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:520000 },
-  { id:5,  fabric:'cotton',    from:'Brazil',      to:'China',     fromCoords:[-51.9,-14.2], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:210000 },
-  { id:6,  fabric:'cotton',    from:'Turkey',      to:'Germany',   fromCoords:[35.2,38.9],   toCoords:[10.5,51.2],   mode:'Road',  volume_tonnes:160000 },
-  { id:7,  fabric:'polyester', from:'China',       to:'USA',       fromCoords:[104.2,35.9],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:820000 },
-  { id:8,  fabric:'polyester', from:'China',       to:'Germany',   fromCoords:[104.2,35.9],  toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:540000 },
-  { id:9,  fabric:'polyester', from:'Vietnam',     to:'USA',       fromCoords:[108.3,14.1],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:310000 },
-  { id:10, fabric:'polyester', from:'South Korea', to:'USA',       fromCoords:[127.8,36.5],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:190000 },
-  { id:11, fabric:'polyester', from:'China',       to:'Japan',     fromCoords:[104.2,35.9],  toCoords:[138.3,36.2],  mode:'Ocean', volume_tonnes:240000 },
-  { id:12, fabric:'silk',      from:'China',       to:'Italy',     fromCoords:[104.2,35.9],  toCoords:[12.6,42.5],   mode:'Ocean', volume_tonnes:28000  },
-  { id:13, fabric:'silk',      from:'China',       to:'Germany',   fromCoords:[104.2,35.9],  toCoords:[10.5,51.2],   mode:'Air',   volume_tonnes:8000   },
-  { id:14, fabric:'silk',      from:'India',       to:'Italy',     fromCoords:[78.9,20.6],   toCoords:[12.6,42.5],   mode:'Ocean', volume_tonnes:14000  },
-  { id:15, fabric:'wool',      from:'Australia',   to:'China',     fromCoords:[133.8,-25.3], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:175000 },
-  { id:16, fabric:'wool',      from:'Australia',   to:'Germany',   fromCoords:[133.8,-25.3], toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:92000  },
-  { id:17, fabric:'wool',      from:'New Zealand', to:'China',     fromCoords:[172.5,-40.9], toCoords:[104.2,35.9],  mode:'Ocean', volume_tonnes:68000  },
-  { id:18, fabric:'nylon',     from:'China',       to:'USA',       fromCoords:[104.2,35.9],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:280000 },
-  { id:19, fabric:'nylon',     from:'Taiwan',      to:'USA',       fromCoords:[120.9,23.7],  toCoords:[-95.7,37.1],  mode:'Ocean', volume_tonnes:140000 },
-  { id:20, fabric:'nylon',     from:'South Korea', to:'Germany',   fromCoords:[127.8,36.5],  toCoords:[10.5,51.2],   mode:'Ocean', volume_tonnes:110000 },
-];
+// ROUTES is loaded from routes.json — see fetch() call at the bottom.
+// Generated by scripts/export_routes_json.py from silk_road_2023_with_emissions.csv
+// NOTE: Cotton and silk are absent from the dataset (see export script for explanation).
+let ROUTES = [];
 
-// ═══════════════════════════════════════════════════════════════════
-// HOOK #2 · Malik
-// Replace this function body with the real carbon engine when ready.
-// ═══════════════════════════════════════════════════════════════════
+// Emission factors match the Python pipeline (EPA GHG Hub / GLEC Framework v3.2)
+// Units: kg CO₂e per kg·km
 const EMISSION_FACTORS = { Ocean: 0.000015, Air: 0.00109, Road: 0.000105, Rail: 0.000022 };
 
 function calcCarbon(distKm, mode, tonnes) {
@@ -162,9 +141,10 @@ const FABRICS = {
 };
 const MODES = { Ocean:'Ship', Air:'Air', Road:'Road', Rail:'Rail' };
 
-// ── State ── // 
-let activeFabs  = new Set(ROUTES.map(r => r.fabric));
-let activeModes = new Set(ROUTES.map(r => r.mode));
+// ── State ── //
+let activeFabs  = new Set();
+let activeModes = new Set();
+let activeYears = new Set();
 let selRoute = null;
 let rg, ng, proj, pathFn, afId;
 
@@ -181,41 +161,74 @@ function fmtCo2(v) {
   return Math.round(v).toString();
 }
 
-const maxCo2 = Math.max(...ROUTES.map(r =>
-  calcCarbon(haversine(r.fromCoords,r.toCoords), r.mode, r.volume_tonnes)
-));
+let maxCo2 = 1;
 
-// ── Header controls ── // 
-[...new Set(ROUTES.map(r=>r.fabric))].filter(f=>FABRICS[f]).forEach(k => {
-  const m=FABRICS[k], b=document.createElement('button');
-  b.className='fab-btn'; b.textContent=m.label;
-  b.style.cssText=`color:${m.color};border-color:${m.color};background:${m.color}1e;`;
-  b.onclick=()=>{
-    if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
-    else{activeFabs.add(k);b.classList.remove('off');}
-    renderRoutes();
-  };
-  document.getElementById('fab-row').appendChild(b);
-});
+function buildControls() {
+  maxCo2 = Math.max(...ROUTES.map(r =>
+    calcCarbon(haversine(r.fromCoords, r.toCoords), r.mode, r.volume_tonnes)
+  ));
 
-[...new Set(ROUTES.map(r=>r.mode))].filter(m=>MODES[m]).forEach(k => {
-  const b=document.createElement('button');
-  b.className='mode-btn on'; b.textContent=MODES[k];
-  b.onclick=()=>{
-    if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
-    else{activeModes.add(k);b.classList.add('on');}
-    renderRoutes();
-  };
-  document.getElementById('mode-row').appendChild(b);
-});
+  activeFabs  = new Set(ROUTES.map(r => r.fabric));
+  activeModes = new Set(ROUTES.map(r => r.mode));
+  activeYears = new Set(ROUTES.map(r => r.year).filter(Boolean));
 
-// ── Render ── // 
+  const fabRow  = document.getElementById('fab-row');
+  const modeRow = document.getElementById('mode-row');
+  const yrRow   = document.getElementById('yr-row');
+  fabRow.innerHTML = ''; modeRow.innerHTML = ''; yrRow.innerHTML = '';
+
+  [...new Set(ROUTES.map(r=>r.fabric))].filter(f=>FABRICS[f]).forEach(k => {
+    const m=FABRICS[k], b=document.createElement('button');
+    b.className='fab-btn'; b.textContent=m.label;
+    b.style.cssText=`color:${m.color};border-color:${m.color};background:${m.color}1e;`;
+    b.onclick=()=>{
+      if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
+      else{activeFabs.add(k);b.classList.remove('off');}
+      renderRoutes();
+    };
+    fabRow.appendChild(b);
+  });
+
+  [...new Set(ROUTES.map(r=>r.mode))].filter(m=>MODES[m]).forEach(k => {
+    const b=document.createElement('button');
+    b.className='mode-btn on'; b.textContent=MODES[k];
+    b.onclick=()=>{
+      if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
+      else{activeModes.add(k);b.classList.add('on');}
+      renderRoutes();
+    };
+    modeRow.appendChild(b);
+  });
+
+  // Year buttons — only shown when multiple years exist in the data
+  const years = [...new Set(ROUTES.map(r=>r.year).filter(Boolean))].sort();
+  if (years.length > 1) {
+    document.getElementById('sr-timeline').style.display = 'flex';
+    years.forEach(yr => {
+      const b = document.createElement('button');
+      b.className = 'yr-btn on'; b.textContent = yr;
+      b.onclick = () => {
+        if(activeYears.has(yr)){if(activeYears.size<2)return;activeYears.delete(yr);b.classList.remove('on');}
+        else{activeYears.add(yr);b.classList.add('on');}
+        renderRoutes();
+      };
+      yrRow.appendChild(b);
+    });
+  } else {
+    document.getElementById('sr-timeline').style.display = 'none';
+  }
+}
+
+// ── Render ── //
 function renderRoutes() {
   if(!rg||!ng) return;
   if(afId) cancelAnimationFrame(afId);
   rg.selectAll('*').remove(); ng.selectAll('*').remove();
 
-  const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis=ROUTES.filter(r=>
+    activeFabs.has(r.fabric) && activeModes.has(r.mode) && FABRICS[r.fabric] &&
+    (activeYears.size===0 || !r.year || activeYears.has(r.year))
+  );
   const nodes=new Map();
   vis.forEach(r=>{nodes.set(r.from,r.fromCoords);nodes.set(r.to,r.toCoords);});
 
@@ -297,25 +310,29 @@ function selectRoute(r){
   });
 }
 
-// ── Load map ── // 
+// ── Load routes + map ── //
 const mapEl=document.getElementById('sr-map');
 const svg=d3.select('#sr-map-svg');
 const loadEl=document.getElementById('loading');
 
-fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-  .then(r=>r.json()).then(world=>{
-    const W=mapEl.clientWidth||730, H=mapEl.clientHeight||544;
-    svg.attr('width',W).attr('height',H);
-    proj=d3.geoNaturalEarth1().scale(Math.min(W/5.0,H/3.1)).translate([W/2,H/2]);
-    pathFn=d3.geoPath().projection(proj);
-    svg.append('g').selectAll('path')
-      .data(topojson.feature(world,world.objects.countries).features)
-      .join('path').attr('class','land').attr('d',pathFn);
-    rg=svg.append('g'); ng=svg.append('g');
-    loadEl.style.display='none';
-    renderRoutes();
-  })
-  .catch(()=>{loadEl.textContent='Could not load map — check internet connection.';});
+Promise.all([
+  fetch('routes.json').then(r=>r.json()),
+  fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r=>r.json())
+]).then(([routesData, world])=>{
+  ROUTES = routesData;
+  buildControls();
+
+  const W=mapEl.clientWidth||730, H=mapEl.clientHeight||544;
+  svg.attr('width',W).attr('height',H);
+  proj=d3.geoNaturalEarth1().scale(Math.min(W/5.0,H/3.1)).translate([W/2,H/2]);
+  pathFn=d3.geoPath().projection(proj);
+  svg.append('g').selectAll('path')
+    .data(topojson.feature(world,world.objects.countries).features)
+    .join('path').attr('class','land').attr('d',pathFn);
+  rg=svg.append('g'); ng=svg.append('g');
+  loadEl.style.display='none';
+  renderRoutes();
+}).catch(()=>{loadEl.textContent='Could not load data — open via a local server (python3 -m http.server)';});
 
 </script>
 </body>
