@@ -145,9 +145,34 @@ const ROUTES = [
 // ═══════════════════════════════════════════════════════════════════
 const EMISSION_FACTORS = { Ocean: 0.000015, Air: 0.00109, Road: 0.000105, Rail: 0.000022 };
 
-function calcCarbon(distKm, mode, tonnes) {
-  const weightKg = tonnes * 1000;
-  return Math.round(weightKg * distKm * (EMISSION_FACTORS[mode] || EMISSION_FACTORS.Ocean));
+const DISTANCE_MULTIPLIER = {
+    Ocean: 1.25,
+    Air: 1.1,
+    Road: 1.3,
+    Rail: 1.2
+  };
+const LOAD_FACTOR = {
+    Ocean: 0.7,
+    Air: 0.6,
+    Road: 0.5,
+    Rail: 0.8
+  };
+const FIXED_EMISSIONS = {
+    Ocean: 500,
+    Air: 1500,
+    Road: 100,
+    Rail: 200
+  };
+
+function calcCarbon(distKm, mode, tonnes) {  
+  const distanceAdj = distKm * (DISTANCE_MULTIPLIER[mode] || 1.2);
+  const emissionFactor = EMISSION_FACTORS[mode] || EMISSION_FACTORS.Ocean;
+  const loadAdj = 1 / Math.max(LOAD_FACTOR[mode] || 0.7, 0.1);
+
+  const transport = tonnes * distanceAdj * emissionFactor * loadAdj;
+  const fixed = (FIXED_EMISSIONS[mode] || 0) * Math.sqrt(tonnes);
+
+  return Math.round(transport + fixed);
 }
 
 // ── Config ── // 
