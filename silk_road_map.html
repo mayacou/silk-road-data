@@ -9,23 +9,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: 'Inter', system-ui, sans-serif; }
+body { background: #0d1117; display: flex; justify-content: center; align-items: flex-start; padding: 28px; min-height: 100vh; }
 
-body {
-  background: #0d1117;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 28px;
-  min-height: 100vh;
-}
-
-#app {
-  width: 100%;
-  max-width: 1100px;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
+#app { width: 100%; max-width: 1100px; display: flex; flex-direction: column; flex-shrink: 0; }
 
 /* ── Top bar ── */
 #topbar {
@@ -44,6 +30,22 @@ body {
 #fab-row  { display: flex; gap: 5px; flex: 1; overflow: hidden; }
 #mode-row { display: flex; gap: 4px; flex-shrink: 0; }
 
+/* Live emissions counter */
+#emissions-counter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+#emissions-counter .ec-label { font-size: 9.5px; font-weight: 500; color: #484f58; letter-spacing: 0.06em; text-transform: uppercase; }
+#emissions-counter .ec-value { font-size: 13px; font-weight: 600; color: #f0f6fc; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; transition: color 0.3s; }
+#emissions-counter .ec-unit  { font-size: 9.5px; color: #484f58; }
+
 .fab-btn { padding: 3px 10px; font-size: 11px; font-weight: 500; font-family: inherit; border-radius: 20px; border: 1px solid; cursor: pointer; white-space: nowrap; transition: all 0.15s; background: transparent; flex-shrink: 0; letter-spacing: 0.01em; }
 .fab-btn:hover { opacity: 0.85; }
 .fab-btn.off { opacity: 0.2; }
@@ -52,69 +54,40 @@ body {
 .mode-btn:hover { border-color: #484f58; color: #f0f6fc; }
 
 /* ── Main layout ── */
-#main {
-  display: grid;
-  grid-template-columns: 1fr 270px;
-  height: 600px;
-  border: 1px solid #30363d;
-  border-radius: 0 0 12px 12px;
-  overflow: hidden;
-}
+#main { display: grid; grid-template-columns: 1fr 270px; height: 600px; border: 1px solid #30363d; border-radius: 0 0 12px 12px; overflow: hidden; }
 
 /* ── Map ── */
 #sr-map { position: relative; overflow: hidden; background: #0d1b2a; min-height: 0; }
 #sr-map-svg { display: block; }
-
-.sphere   { fill: #0d1b2a; }
+.sphere    { fill: #0d1b2a; }
 .graticule { fill: none; stroke: #ffffff06; stroke-width: 0.5; }
 .land { fill: #1a2d3d; stroke: #0d1b2a; stroke-width: 0.6; cursor: pointer; transition: fill 0.15s; }
-.land:hover { fill: #e6edf3; }
+.land:hover  { fill: #e6edf3; }
 .land.active { fill: #e6edf3; }
 
-.route-bg { fill: none; stroke-linecap: round; cursor: pointer; opacity: 0.55; transition: opacity 0.18s; }
+.route-bg   { fill: none; stroke-linecap: round; cursor: pointer; opacity: 0.55; transition: opacity 0.18s; }
 .route-bg:hover { opacity: 1; }
-.route-bg.sel { opacity: 1; }
-.route-bg.dim { opacity: 0.04; }
+.route-bg.sel   { opacity: 1; }
+.route-bg.dim   { opacity: 0.04; }
 .route-flow { fill: none; stroke-linecap: round; pointer-events: none; }
-.nd { stroke: #0d1b2a; stroke-width: 1.5; pointer-events: none; transition: r 0.15s; }
+
+/* Glow filter for selected route */
+#glow-filter { position: absolute; width: 0; height: 0; }
+
+.nd     { stroke: #0d1b2a; stroke-width: 1.5; pointer-events: none; }
 .nd-lbl { font-size: 8.5px; fill: #8b949e; pointer-events: none; font-family: 'Inter', system-ui; }
 
-#tip {
-  position: absolute;
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 11px;
-  font-family: 'Inter', system-ui;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.12s;
-  max-width: 210px;
-  z-index: 10;
-  line-height: 1.6;
-  color: #c9d1d9;
-}
+#tip { position: absolute; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font-size: 11px; font-family: 'Inter', system-ui; pointer-events: none; opacity: 0; transition: opacity 0.12s; max-width: 210px; z-index: 10; line-height: 1.6; color: #c9d1d9; }
 #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 12px; color: #484f58; text-align: center; font-family: 'Inter', system-ui; }
 
 /* ── Panel ── */
-#sr-panel {
-  background: #161b22;
-  border-left: 1px solid #30363d;
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: #30363d transparent;
-}
+#sr-panel { background: #161b22; border-left: 1px solid #30363d; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; min-height: 0; scrollbar-width: thin; scrollbar-color: #30363d transparent; }
 #sr-panel::-webkit-scrollbar { width: 4px; }
 #sr-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
 #empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #484f58; font-size: 12px; text-align: center; padding: 20px; line-height: 1.7; }
 #detail { display: none; flex-direction: column; gap: 14px; }
+#country-info { display: none; flex-direction: column; gap: 10px; }
 
 .plbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: #484f58; text-transform: uppercase; margin-bottom: 6px; }
 .scard { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; }
@@ -127,8 +100,6 @@ body {
 .mv { font-size: 13px; font-weight: 500; color: #c9d1d9; }
 #d-name { font-size: 14px; font-weight: 600; line-height: 1.4; }
 
-/* Country hover panel */
-#country-info { display: none; flex-direction: column; gap: 10px; }
 .ctry-route-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; background: #0d1117; border: 1px solid #21262d; cursor: pointer; transition: border-color 0.15s; }
 .ctry-route-item:hover { border-color: #484f58; }
 .ctry-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -136,6 +107,12 @@ body {
 .ctry-route-co2  { font-size: 11px; font-weight: 500; color: #c9d1d9; flex-shrink: 0; }
 
 .foot { font-size: 10px; color: #30363d; line-height: 1.8; border-top: 1px solid #21262d; padding-top: 10px; }
+
+/* Route thickness legend */
+#thickness-legend { position: absolute; bottom: 14px; right: 14px; display: flex; flex-direction: column; gap: 5px; }
+.tl-row { display: flex; align-items: center; gap: 6px; }
+.tl-line { background: #8b949e; border-radius: 2px; flex-shrink: 0; }
+.tl-lbl { font-size: 9.5px; color: #484f58; font-family: 'Inter', system-ui; }
 
 #legend { position: absolute; bottom: 14px; left: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8b949e; font-family: 'Inter', system-ui; }
@@ -150,32 +127,48 @@ body {
     <span id="title-tag">2023 · UN Comtrade</span>
     <div id="fab-row"></div>
     <div id="mode-row"></div>
+    <div id="emissions-counter">
+      <span class="ec-label">Visible CO₂e</span>
+      <span class="ec-value" id="ec-val">—</span>
+      <span class="ec-unit">kg</span>
+    </div>
   </div>
 
   <div id="main">
     <div id="sr-map">
-      <svg id="sr-map-svg"></svg>
+      <svg id="sr-map-svg">
+        <!-- Glow filter for selected route -->
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+      </svg>
       <div id="tip"></div>
       <div id="loading">Loading map…</div>
       <div id="legend"></div>
+      <div id="thickness-legend">
+        <div class="tl-row"><div class="tl-line" style="width:40px;height:4px;opacity:0.7"></div><span class="tl-lbl">High volume</span></div>
+        <div class="tl-row"><div class="tl-line" style="width:40px;height:2px;opacity:0.5"></div><span class="tl-lbl">Mid volume</span></div>
+        <div class="tl-row"><div class="tl-line" style="width:40px;height:1px;opacity:0.4"></div><span class="tl-lbl">Low volume</span></div>
+      </div>
     </div>
     <div id="sr-panel">
 
-      <!-- Default empty state -->
       <div id="empty">
         <svg width="32" height="32" viewBox="0 0 28 28" fill="none" style="opacity:0.2">
           <circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/>
           <path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/>
         </svg>
-        <div>Hover a country to see its routes<br>Click a route to explore its<br>carbon footprint</div>
+        <div>Hover a country to see<br>its routes · stroke width<br>= trade volume</div>
       </div>
 
-      <!-- Country hover info -->
       <div id="country-info">
         <div>
           <div class="plbl">Country</div>
           <div id="ci-name" style="font-size:15px;font-weight:600;color:#f0f6fc;"></div>
-          <div id="ci-sub" style="font-size:11px;color:#484f58;margin-top:3px;"></div>
+          <div id="ci-sub"  style="font-size:11px;color:#484f58;margin-top:3px;"></div>
         </div>
         <div>
           <div class="plbl">Trade routes</div>
@@ -183,14 +176,13 @@ body {
         </div>
       </div>
 
-      <!-- Route detail (click) -->
       <div id="detail">
         <div style="display:flex;align-items:center;gap:8px;">
           <button id="back-btn" onclick="clearRoute()" style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:3px 8px;font-size:11px;color:#8b949e;cursor:pointer;font-family:inherit;">← Back</button>
           <div class="plbl" style="margin-bottom:0;">Route detail</div>
         </div>
         <div>
-          <div id="d-name" style="font-size:14px;font-weight:600;line-height:1.4;"></div>
+          <div id="d-name"></div>
           <div id="d-meta" style="font-size:11px;color:#484f58;margin-top:4px;"></div>
         </div>
         <div>
@@ -217,7 +209,7 @@ body {
           <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
         <div class="foot">
-          Emission factors:<br>EPA GHG Hub 2025 + GLEC Framework v3.2<br><br>
+          Emission factors: EPA GHG Hub 2025 + GLEC Framework v3.2<br><br>
           Data: UN Comtrade 2023<br>
           Note: cotton &amp; silk absent from dataset
         </div>
@@ -248,7 +240,9 @@ let ALL_ROUTES=[], ROUTES=[];
 let activeFabs=new Set(), activeModes=new Set();
 let selRoute=null, hovCountry=null;
 let rg, ng, proj, pathFn, afId, maxCo2=1;
-let countryNameMap = {}; // ISO → name from topojson
+
+// Scale for stroke width 
+let strokeScale;
 
 function fmt(v) {
   if(v>=1e9) return (v/1e9).toFixed(2)+'B';
@@ -270,62 +264,67 @@ function limitRoutes(all,n) {
 
 function makeGeoLine(from,to,steps=80) {
   const interp=d3.geoInterpolate(from,to);
-  return { type:'Feature', geometry:{ type:'LineString', coordinates:d3.range(steps+1).map(i=>interp(i/steps)) } };
+  return { type:'Feature', geometry:{ type:'LineString', coordinates:d3.range(steps+1).map(i=>interp(i/steps)) }};
 }
 
-// ── Panels ───────────────────────────────────────────────────────
+// ── Live emissions counter ───
+function updateCounter() {
+  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const total = vis.reduce((s,r)=>s+r.total_emissions_kgco2e, 0);
+  const el = document.getElementById('ec-val');
+  el.textContent = fmt(total);
+  // Color shifts red when high, teal when low
+  const pct = total / Math.max(...ROUTES.map(r=>r.total_emissions_kgco2e)) / vis.length;
+  el.style.color = '#f0f6fc';
+}
+
+// ── Panels ──
 function showPanel(which) {
   document.getElementById('empty').style.display        = which==='empty'   ? 'flex' : 'none';
   document.getElementById('country-info').style.display = which==='country' ? 'flex' : 'none';
   document.getElementById('detail').style.display       = which==='detail'  ? 'flex' : 'none';
 }
 
-// ── Country hover ─────────────────────────────────────────────────
+// ── Country hover ──
 function onCountryEnter(name) {
-  if (selRoute) return; // don't override route detail
+  if(selRoute) return;
   hovCountry = name;
-
-  // Highlight all routes touching this country
   rg.selectAll('.route-bg')
-    .classed('sel', d => d.from===name || d.to===name)
-    .classed('dim', d => d.from!==name && d.to!==name);
+    .classed('sel', d=>d.from===name||d.to===name)
+    .classed('dim', d=>d.from!==name&&d.to!==name);
 
-  // Find matching routes
-  const vis = ROUTES.filter(r => activeFabs.has(r.fabric) && activeModes.has(r.mode) && FABRICS[r.fabric]);
-  const matching = vis.filter(r => r.from===name || r.to===name)
-    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e)
-    .slice(0, 8);
+  const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const matching=vis.filter(r=>r.from===name||r.to===name)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e).slice(0,8);
 
-  if (matching.length === 0) { showPanel('empty'); return; }
+  if(!matching.length){ showPanel('empty'); return; }
 
-  document.getElementById('ci-name').textContent = name;
-  document.getElementById('ci-sub').textContent  = `${matching.length} active trade route${matching.length>1?'s':''}`;
+  document.getElementById('ci-name').textContent=name;
+  document.getElementById('ci-sub').textContent=`${matching.length} active trade route${matching.length>1?'s':''}`;
 
-  const list = document.getElementById('ci-routes');
-  list.innerHTML = '';
-  matching.forEach(r => {
-    const partner = r.from===name ? r.to : r.from;
-    const dir     = r.from===name ? '→' : '←';
-    const color   = FABRICS[r.fabric].color;
-    const item    = document.createElement('div');
-    item.className = 'ctry-route-item';
-    item.innerHTML = `
+  const list=document.getElementById('ci-routes'); list.innerHTML='';
+  matching.forEach(r=>{
+    const partner=r.from===name?r.to:r.from;
+    const dir=r.from===name?'→':'←';
+    const color=FABRICS[r.fabric].color;
+    const item=document.createElement('div');
+    item.className='ctry-route-item';
+    item.innerHTML=`
       <div class="ctry-dot" style="background:${color}"></div>
       <div class="ctry-route-text">
         <span style="color:#c9d1d9;font-weight:500">${dir} ${partner}</span><br>
         ${FABRICS[r.fabric].label} · ${MODES[r.mode]||r.mode}
       </div>
       <div class="ctry-route-co2">${fmt(r.total_emissions_kgco2e)}</div>`;
-    item.onclick = () => selectRoute(r);
+    item.onclick=()=>selectRoute(r);
     list.appendChild(item);
   });
-
   showPanel('country');
 }
 
 function onCountryLeave() {
-  if (selRoute) return;
-  hovCountry = null;
+  if(selRoute) return;
+  hovCountry=null;
   renderRoutes();
   showPanel('empty');
 }
@@ -335,6 +334,13 @@ function buildControls() {
   maxCo2      = Math.max(...ROUTES.map(r=>r.total_emissions_kgco2e));
   activeFabs  = new Set(ROUTES.map(r=>r.fabric));
   activeModes = new Set(ROUTES.map(r=>r.mode));
+
+  // Stroke scale: sqrt so thick routes don't overwhelm thin ones
+  const volumes = ROUTES.map(r=>r.volume_tonnes);
+  strokeScale = d3.scaleSqrt()
+    .domain([d3.min(volumes), d3.max(volumes)])
+    .range([1, 6])
+    .clamp(true);
 
   const fabRow=document.getElementById('fab-row');
   const modeRow=document.getElementById('mode-row');
@@ -347,7 +353,7 @@ function buildControls() {
     b.onclick=()=>{
       if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
       else{activeFabs.add(k);b.classList.remove('off');}
-      renderRoutes();
+      updateCounter(); renderRoutes();
     };
     fabRow.appendChild(b);
   });
@@ -358,12 +364,11 @@ function buildControls() {
     b.onclick=()=>{
       if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
       else{activeModes.add(k);b.classList.add('on');}
-      renderRoutes();
+      updateCounter(); renderRoutes();
     };
     modeRow.appendChild(b);
   });
 
-  // Legend
   const legend=document.getElementById('legend'); legend.innerHTML='';
   [...new Set(ROUTES.map(r=>r.fabric))].filter(f=>FABRICS[f]).forEach(k=>{
     const m=FABRICS[k], div=document.createElement('div');
@@ -371,9 +376,11 @@ function buildControls() {
     div.innerHTML=`<div class="leg-dot" style="background:${m.color}"></div>${m.label}`;
     legend.appendChild(div);
   });
+
+  updateCounter();
 }
 
-// ── Render routes ─────────────────────────────────────────────────
+// ── Render routes ──
 function renderRoutes() {
   if(!rg||!ng) return;
   if(afId) cancelAnimationFrame(afId);
@@ -383,41 +390,66 @@ function renderRoutes() {
   const nodes=new Map();
   vis.forEach(r=>{nodes.set(r.from,r.fromCoords);nodes.set(r.to,r.toCoords);});
 
-  vis.forEach(r=>{
+  const sorted=[...vis].sort((a,b)=>b.volume_tonnes-a.volume_tonnes);
+
+  sorted.forEach(r=>{
     const color=FABRICS[r.fabric].color;
-    const isSel=selRoute?.id===r.id;
-    const isDim=selRoute&&selRoute.id!==r.id;
+    const isSel=selRoute?.id===r.id, isDim=selRoute&&selRoute.id!==r.id;
+    const sw=strokeScale(r.volume_tonnes);
+
     rg.append('path').datum(r)
       .attr('class',`route-bg${isSel?' sel':''}${isDim?' dim':''}`)
       .attr('d',pathFn(makeGeoLine(r.fromCoords,r.toCoords)))
-      .attr('stroke',color).attr('stroke-width',isSel?3:1.8)
+      .attr('stroke',color)
+      .attr('stroke-width', isSel ? sw+1.5 : sw)
+      .attr('filter', isSel ? 'url(#glow)' : null)
       .on('mouseover',(ev,d)=>showTip(ev,d))
       .on('mouseout',()=>hideTip())
       .on('click',(ev,d)=>selectRoute(d));
   });
 
+  // Animated dashes 
   const fp=[];
-  vis.forEach((r,i)=>{
+  sorted.forEach((r,i)=>{
     const color=FABRICS[r.fabric].color;
     const isSel=selRoute?.id===r.id, isDim=selRoute&&selRoute.id!==r.id;
+    const sw=strokeScale(r.volume_tonnes);
     const el=rg.append('path').attr('class','route-flow')
       .attr('d',pathFn(makeGeoLine(r.fromCoords,r.toCoords)))
-      .attr('stroke',isSel?'#ffffff':color)
-      .attr('stroke-width',isSel?3.5:2)
-      .attr('opacity',isDim?0:0.9).node();
+      .attr('stroke', isSel?'#ffffff':color)
+      .attr('stroke-width', isSel?sw+2:sw)
+      .attr('opacity', isDim?0:0.9)
+      .attr('filter', isSel?'url(#glow)':null)
+      .node();
     const len=el.getTotalLength();
-    el.setAttribute('stroke-dasharray',`${Math.max(10,len*0.06)} ${Math.max(24,len*0.2)}`);
-    fp.push({el,len,speed:24+(i%8)*5,offset:Math.random()*len});
+    // Thicker routes get longer dashes
+    const dashLen=Math.max(8, len*0.05*Math.sqrt(sw));
+    const gapLen =Math.max(20, len*0.18);
+    el.setAttribute('stroke-dasharray',`${dashLen} ${gapLen}`);
+    fp.push({el,len,speed:20+(i%8)*5,offset:Math.random()*len});
   });
-  function tick(){fp.forEach(p=>{p.offset=(p.offset+p.speed/60)%p.len;p.el.setAttribute('stroke-dashoffset',-p.offset);});afId=requestAnimationFrame(tick);}
+
+  function tick(){
+    fp.forEach(p=>{p.offset=(p.offset+p.speed/60)%p.len;p.el.setAttribute('stroke-dashoffset',-p.offset);});
+    afId=requestAnimationFrame(tick);
+  }
   tick();
+
+  // Nodes — size also proportional to number of routes
+  const nodeCounts=new Map();
+  vis.forEach(r=>{
+    nodeCounts.set(r.from,(nodeCounts.get(r.from)||0)+1);
+    nodeCounts.set(r.to,  (nodeCounts.get(r.to)||0)+1);
+  });
+  const nodeScale=d3.scaleSqrt().domain([1,d3.max([...nodeCounts.values()])]).range([2.5,5.5]).clamp(true);
 
   nodes.forEach((coords,name)=>{
     const pt=proj(coords); if(!pt||isNaN(pt[0])) return;
     const fabs=[...new Set(vis.filter(r=>r.from===name||r.to===name).map(r=>r.fabric))];
     const color=fabs.length===1?FABRICS[fabs[0]].color:'#8b949e';
-    ng.append('circle').attr('class','nd').attr('cx',pt[0]).attr('cy',pt[1]).attr('r',3).attr('fill',color);
-    ng.append('text').attr('class','nd-lbl').attr('x',pt[0]+5).attr('y',pt[1]+1).attr('dominant-baseline','middle').text(name);
+    const r=nodeScale(nodeCounts.get(name)||1);
+    ng.append('circle').attr('class','nd').attr('cx',pt[0]).attr('cy',pt[1]).attr('r',r).attr('fill',color);
+    ng.append('text').attr('class','nd-lbl').attr('x',pt[0]+r+3).attr('y',pt[1]+1).attr('dominant-baseline','middle').text(name);
   });
 }
 
@@ -425,10 +457,14 @@ function renderRoutes() {
 const tipEl=document.getElementById('tip');
 function showTip(ev,r){
   const color=FABRICS[r.fabric].color;
-  tipEl.innerHTML=`<span style="font-weight:600;color:${color}">${r.from} → ${r.to}</span><br><span style="color:#8b949e">${FABRICS[r.fabric].label} · ${MODES[r.mode]||r.mode}</span><br><span style="color:#f0f6fc;font-weight:500">${fmt(r.total_emissions_kgco2e)} kg CO₂e</span>`;
+  tipEl.innerHTML=`
+    <span style="font-weight:600;color:${color}">${r.from} → ${r.to}</span><br>
+    <span style="color:#8b949e">${FABRICS[r.fabric].label} · ${MODES[r.mode]||r.mode}</span><br>
+    <span style="color:#f0f6fc;font-weight:500">${fmt(r.total_emissions_kgco2e)} kg CO₂e</span><br>
+    <span style="color:#484f58">${r.volume_tonnes.toLocaleString()} t · ${Math.round(r.distance_km).toLocaleString()} km</span>`;
   const box=document.getElementById('sr-map').getBoundingClientRect();
   tipEl.style.left=Math.min(ev.clientX-box.left+14,box.width-215)+'px';
-  tipEl.style.top=Math.min(ev.clientY-box.top+14,box.height-90)+'px';
+  tipEl.style.top=Math.min(ev.clientY-box.top+14,box.height-100)+'px';
   tipEl.style.opacity='1';
 }
 function hideTip(){tipEl.style.opacity='0';}
@@ -473,7 +509,6 @@ function clearRoute(){
   selRoute=null; renderRoutes(); showPanel('empty');
 }
 
-// ── Init ──────────────────────────────────────────────────────────
 const mapEl=document.getElementById('sr-map');
 const svg=d3.select('#sr-map-svg');
 const loadEl=document.getElementById('loading');
@@ -486,11 +521,6 @@ Promise.all([
   ROUTES=limitRoutes(ALL_ROUTES,TOP_N);
   buildControls();
 
-  // Build ISO → name map from topojson properties
-  topojson.feature(world,world.objects.countries).features.forEach(f=>{
-    if(f.properties?.name) countryNameMap[f.id]=f.properties.name;
-  });
-
   requestAnimationFrame(()=>{
     const W=mapEl.offsetWidth||800;
     const H=mapEl.offsetHeight||574;
@@ -502,33 +532,23 @@ Promise.all([
     svg.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d',pathFn);
     svg.append('path').datum(d3.geoGraticule()()).attr('class','graticule').attr('d',pathFn);
 
-    // Land with hover highlight
     svg.append('g').selectAll('path')
       .data(topojson.feature(world,world.objects.countries).features)
-      .join('path')
-      .attr('class','land')
-      .attr('d',pathFn)
-      .on('mouseenter', function(ev,d) {
-        // Highlight this country shape
-        d3.select(this).classed('active', true);
-
-        // Find the country name from our routes data
-        const isoName = d.properties?.name || '';
-        // Match to route country names (routes use full names like "Viet Nam")
-        const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode));
-        const allNames = [...new Set([...vis.map(r=>r.from),...vis.map(r=>r.to)])];
-
-        // Fuzzy match: check if any route country name contains the topo name or vice versa
-        const match = allNames.find(n =>
-          n.toLowerCase()===isoName.toLowerCase() ||
-          n.toLowerCase().includes(isoName.toLowerCase()) ||
+      .join('path').attr('class','land').attr('d',pathFn)
+      .on('mouseenter',function(ev,d){
+        d3.select(this).classed('active',true);
+        const isoName=d.properties?.name||'';
+        const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode));
+        const allNames=[...new Set([...vis.map(r=>r.from),...vis.map(r=>r.to)])];
+        const match=allNames.find(n=>
+          n.toLowerCase()===isoName.toLowerCase()||
+          n.toLowerCase().includes(isoName.toLowerCase())||
           isoName.toLowerCase().includes(n.toLowerCase())
         );
-
         if(match) onCountryEnter(match);
       })
-      .on('mouseleave', function(ev,d) {
-        d3.select(this).classed('active', false);
+      .on('mouseleave',function(){
+        d3.select(this).classed('active',false);
         onCountryLeave();
       });
 
