@@ -515,7 +515,6 @@ const loadEl=document.getElementById('loading');
 
 Promise.all([
   fetch('routes.json').then(r=>r.json()),
-  fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r=>r.json())
 ]).then(([routesData,world])=>{
   ALL_ROUTES=routesData;
   ROUTES=limitRoutes(ALL_ROUTES,TOP_N);
