@@ -537,9 +537,15 @@ Promise.all([
       .join('path').attr('class','land').attr('d',pathFn)
       .on('mouseenter',function(ev,d){
         d3.select(this).classed('active',true);
-        const isoName=d.properties?.name||'';
+        let isoName = d.properties?.name || '';
+        const fixed = NAME_FIXES[isoName.toLowerCase()];
+        if (fixed) isoName = fixed;
         const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode));
         const allNames=[...new Set([...vis.map(r=>r.from),...vis.map(r=>r.to)])];
+
+        const NAME_FIXES = {
+  "united states of america": "United States"
+        };
         const match=allNames.find(n=>
           n.toLowerCase()===isoName.toLowerCase()||
           n.toLowerCase().includes(isoName.toLowerCase())||
