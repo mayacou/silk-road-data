@@ -18,6 +18,3 @@ data/raw/
 # Ignore Operating System clutter
 .DS_Store
 Thumbs.db
-
-# Claude Code config
-.claude/
