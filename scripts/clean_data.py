@@ -1,6 +1,10 @@
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 import os
+import json
+import pickle
+from math import radians, cos, sin, asin, sqrt
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -23,6 +27,15 @@ MOT_MAPPING = {
 }
 
 
+def haversine(lon1, lat1, lon2, lat2):
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    c = 2 * asin(sqrt(a))
+    return 6371 * c
+
+
 def load_map():
     print(f"Loading world map from {MAP_FILE}...")
     gdf = gpd.read_file(MAP_FILE)
@@ -43,33 +56,7 @@ def load_map():
     return countries, cont_col
 
 
-def run_inference(row, countries, cont_col):
-    current_mode = row['Calculated_Mode']
-    if current_mode != 'Unknown':
-        return current_mode, False, "Reported"
-
-    iso_o = row['reporterISO']
-    iso_d = row['partnerISO']
-
-    if iso_o not in countries.index or iso_d not in countries.index:
-        return "Ocean", True, "Map Default"
-
-    origin = countries.loc[iso_o]
-    dest   = countries.loc[iso_d]
-
-    if (row['fobvalue'] / row['netWgt']) > 50:
-        return "Air", True, "Value Density"
-
-    if origin.geometry.touches(dest.geometry) or origin.geometry.distance(dest.geometry) < 0.01:
-        return "Road", True, "Shared Border"
-
-    if origin[cont_col] != dest[cont_col]:
-        return "Ocean", True, "Intercontinental"
-
-    return "Ocean", True, "Intra-continental"
-
-
-def clean_year(year: str, countries, cont_col):
+def clean_year(year: str, countries, cont_col, centroids, model, label_encoder):
     raw_file    = os.path.join(BASE_DIR, "data", "raw", year, "_combined_raw.csv")
     output_file = os.path.join(OUTPUT_DIR, f"silk_road_{year}_refined.csv")
 
@@ -90,12 +77,44 @@ def clean_year(year: str, countries, cont_col):
 
     df['Calculated_Mode'] = df['motCode'].map(MOT_MAPPING).fillna('Unknown')
 
-    print("  Running Geographic Inference Engine...")
-    results = df.apply(lambda row: run_inference(row, countries, cont_col), axis=1)
-    df['Final_Mode']       = [r[0] for r in results]
-    df['is_inferred']      = [r[1] for r in results]
-    df['inference_reason'] = [r[2] for r in results]
-    df = df.drop(columns=['Calculated_Mode'])
+    print("  Running ML Prediction Engine...")
+
+    # Identify unknown rows
+    unknown_mask = df['Calculated_Mode'] == 'Unknown'
+
+    # Calculate distance_km for unknown rows using centroids
+    df.loc[unknown_mask, 'reporter_coords'] = df.loc[unknown_mask, 'reporterISO'].map(centroids)
+    df.loc[unknown_mask, 'partner_coords'] = df.loc[unknown_mask, 'partnerISO'].map(centroids)
+
+    def calc_distance(row):
+        if pd.isna(row['reporter_coords']) or pd.isna(row['partner_coords']):
+            return np.nan
+        r = row['reporter_coords']
+        p = row['partner_coords']
+        return haversine(r['lon'], r['lat'], p['lon'], p['lat'])
+
+    df.loc[unknown_mask, 'distance_km'] = df.loc[unknown_mask].apply(calc_distance, axis=1)
+
+    # Calculate value_density and is_high_value for all rows
+    df['value_density'] = df['fobvalue'] / df['netWgt']
+    df['is_high_value'] = (df['value_density'] > 50).astype(int)
+
+    # Predict for unknown rows
+    features = df.loc[unknown_mask, ['netWgt', 'fobvalue', 'distance_km', 'value_density', 'is_high_value']].fillna(0)
+    pred_encoded = model.predict(features)
+    pred = label_encoder.inverse_transform(pred_encoded)
+    df.loc[unknown_mask, 'Final_Mode'] = pred
+    df.loc[unknown_mask, 'is_inferred'] = True
+    df.loc[unknown_mask, 'inference_reason'] = "XGBoost ML Prediction"
+
+    # For known rows
+    known_mask = ~unknown_mask
+    df.loc[known_mask, 'Final_Mode'] = df.loc[known_mask, 'Calculated_Mode']
+    df.loc[known_mask, 'is_inferred'] = False
+    df.loc[known_mask, 'inference_reason'] = "Reported"
+
+    # Drop temporary columns
+    df = df.drop(columns=['Calculated_Mode', 'reporter_coords', 'partner_coords'])
 
     df.to_csv(output_file, index=False)
     print(f"  {year} done: {len(df):,} rows → {output_file}")
@@ -103,6 +122,23 @@ def clean_year(year: str, countries, cont_col):
 
 
 def main():
+    # Load ML assets
+    model_path = os.path.join(BASE_DIR, 'models', 'baseline_model.pkl')
+    encoder_path = os.path.join(BASE_DIR, 'models', 'label_encoder.pkl')
+    centroids_path = os.path.join(BASE_DIR, 'data', 'country_centroids.json')
+
+    with open(model_path, 'rb') as f:
+        model = pickle.load(f)
+    print("✓ Loaded XGBoost model")
+
+    with open(encoder_path, 'rb') as f:
+        label_encoder = pickle.load(f)
+    print("✓ Loaded LabelEncoder")
+
+    with open(centroids_path, 'r') as f:
+        centroids = json.load(f)
+    print("✓ Loaded country centroids")
+
     countries, cont_col = load_map()
 
     raw_base = os.path.join(BASE_DIR, "data", "raw")
@@ -117,7 +153,7 @@ def main():
 
     print(f"Years to process: {years}")
     for year in years:
-        clean_year(year, countries, cont_col)
+        clean_year(year, countries, cont_col, centroids, model, label_encoder)
 
     print("\n" + "=" * 50)
     print("ALL YEARS CLEANED")
