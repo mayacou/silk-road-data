@@ -3,64 +3,64 @@ ULTIMATE EVALUATION: ARBITRATOR HYBRID ARCHITECTURE
 ======================================================================
 
 [1/5] Loading saved assets...
-  ✓ Loaded XGBoost model
-  ✓ Loaded LabelEncoder
+  Loaded XGBoost model
+  Loaded LabelEncoder
 
 [2/5] Loading ground truth data...
-  Total rows in dataset: 214,359
-  Rows after filtering (is_inferred == False): 99,947
+  Total rows in dataset: 310,934
+  Rows after filtering (is_inferred == False): 145,484
   Loading country centroids...
   Calculating distances...
     Processed 200,000 rows...
   Creating derived features...
-  Rows after dropping NaN values: 94,144 (dropped 5,803)
+  Rows after dropping NaN values: 136,665 (dropped 8,819)
 
 [3/5] Loading geographic helper data...
 Loading world map from c:\Users\mayal\OneDrive\Desktop\Spring26\DVA\Project\github\silk-road-data\data\ne_110m_countries.zip...
-Map indexed — 177 geographic entities recognised.
-  ✓ Loaded 177 geographic entities
+Map indexed: 177 geographic entities recognised.
+  Loaded 177 geographic entities
 
 [4/5] Defining model functions...
-  ✓ Model functions defined
+  Model functions defined
 
 [5/5] Generating predictions and analyzing results...
   Generating Model 1 predictions (Clean Data Inference)...
   Generating Model 2 predictions (Pure ML)...
   Generating Model 3 predictions (Arbitrator Hybrid)...
-  ✓ Predictions generated
+  Predictions generated
 
 ======================================================================
 ACCURACY COMPARISON TABLE
 ======================================================================
 | Model                          | Accuracy   | Improvement vs. Baseline (Model 1)   |
 |--------------------------------|------------|--------------------------------------|
-| Model 1 (Clean Data Inference) | 51.69%     | 0.00%                                |
-| Model 2 (Pure ML)              | 92.08%     | 78.13%                               |
-| Model 3 (Arbitrator Hybrid)    | 69.75%     | 34.94%                               |
+| Model 1 (Clean Data Inference) | 52.27%     | 0.00%                                |
+| Model 2 (Pure ML)              | 89.37%     | 70.97%                               |
+| Model 3 (Arbitrator Hybrid)    | 69.14%     | 32.27%                               |
 ======================================================================
 
 MODE PREDICTION DISTRIBUTION COMPARISON
 ======================================================================
 | Mode   |   True Labels |   Model 1 |   Model 2 |   Model 3 |
 |--------|---------------|-----------|-----------|-----------|
-| Air    |         34215 |     14118 |     34940 |     25248 |
-| Ocean  |         22098 |     26288 |     22434 |     34197 |
-| Rail   |           709 |         0 |       745 |       229 |
-| Road   |         37122 |     53738 |     36025 |     34470 |
+| Air    |         51716 |     21468 |     51378 |     37834 |
+| Ocean  |         33627 |     38056 |     34442 |     50025 |
+| Rail   |           886 |         0 |      1060 |       397 |
+| Road   |         50436 |     77141 |     49785 |     48409 |
 ======================================================================
 
 DETAILED CLASSIFICATION REPORT (Model 1 - Clean Data Inference)
 ======================================================================
               precision    recall  f1-score   support
 
-         Air       0.58      0.24      0.34     34215
-       Ocean       0.45      0.53      0.49     22098
-        Rail       0.00      0.00      0.00       709
-        Road       0.53      0.77      0.63     37122
+         Air       0.58      0.24      0.34     51716
+       Ocean       0.49      0.55      0.52     33627
+        Rail       0.00      0.00      0.00       886
+        Road       0.52      0.80      0.63     50436
 
-    accuracy                           0.52     94144
-   macro avg       0.39      0.39      0.36     94144
-weighted avg       0.53      0.52      0.49     94144
+    accuracy                           0.52    136665
+   macro avg       0.40      0.40      0.37    136665
+weighted avg       0.53      0.52      0.49    136665
 
 ======================================================================
 
@@ -68,14 +68,14 @@ DETAILED CLASSIFICATION REPORT (Model 2 - Pure ML)
 ======================================================================
               precision    recall  f1-score   support
 
-         Air       0.90      0.92      0.91     34215
-       Ocean       0.93      0.94      0.93     22098
-        Rail       0.94      0.98      0.96       709
-        Road       0.93      0.91      0.92     37122
+         Air       0.88      0.88      0.88     51716
+       Ocean       0.89      0.92      0.90     33627
+        Rail       0.82      0.98      0.90       886
+        Road       0.90      0.89      0.90     50436
 
-    accuracy                           0.92     94144
-   macro avg       0.93      0.94      0.93     94144
-weighted avg       0.92      0.92      0.92     94144
+    accuracy                           0.89    136665
+   macro avg       0.88      0.92      0.90    136665
+weighted avg       0.89      0.89      0.89    136665
 
 ======================================================================
 
@@ -83,45 +83,45 @@ DETAILED CLASSIFICATION REPORT (Model 3 - Arbitrator Hybrid)
 ======================================================================
               precision    recall  f1-score   support
 
-         Air       0.70      0.51      0.59     34215
-       Ocean       0.56      0.87      0.68     22098
-        Rail       0.93      0.30      0.45       709
-        Road       0.83      0.77      0.80     37122
+         Air       0.68      0.50      0.58     51716
+       Ocean       0.58      0.86      0.69     33627
+        Rail       0.77      0.34      0.48       886
+        Road       0.82      0.78      0.80     50436
 
-    accuracy                           0.70     94144
-   macro avg       0.75      0.61      0.63     94144
-weighted avg       0.72      0.70      0.69     94144
+    accuracy                           0.69    136665
+   macro avg       0.71      0.62      0.64    136665
+weighted avg       0.71      0.69      0.69    136665
 
 ======================================================================
 
 ERROR OVERLAP STATISTICS
 ======================================================================
-Total ML Errors:                7457
-Total Clean Data Errors:        45478
-Mutual Failures:                4733
-ML Failed, Clean Succeeded:     2724
-Clean Failed, ML Succeeded:     40745
+Total ML Errors:                14522
+Total Clean Data Errors:        65224
+Mutual Failures:                9132
+ML Failed, Clean Succeeded:     5390
+Clean Failed, ML Succeeded:     56092
 ======================================================================
 
 RANDOM SAMPLE AUDIT — ML INCORRECT ROWS
 ======================================================================
 | Origin ISO   | Destination ISO   | True UN Label   | ML Prediction   | Clean Data Prediction   |
 |--------------|-------------------|-----------------|-----------------|-------------------------|
-| KHM          | PHL               | Air             | Road            | Ocean                   |
-| GBR          | ESP               | Road            | Air             | Ocean                   |
-| BGR          | FRA               | Road            | Air             | Air                     |
-| DEU          | DNK               | Air             | Road            | Road                    |
-| DEU          | JPN               | Ocean           | Air             | Ocean                   |
-| FRA          | AUT               | Road            | Air             | Road                    |
-| FRA          | ITA               | Ocean           | Road            | Road                    |
-| BGR          | ARM               | Air             | Road            | Road                    |
-| DEU          | FRA               | Ocean           | Road            | Road                    |
-| CHE          | PRT               | Road            | Air             | Air                     |
-| FRA          | KGZ               | Road            | Air             | Road                    |
-| DEU          | NOR               | Road            | Air             | Air                     |
-| FRA          | BEL               | Road            | Air             | Road                    |
-| FRA          | GRC               | Air             | Road            | Air                     |
-| ROU          | DEU               | Air             | Road            | Air                     |
+| FRA          | QAT               | Air             | Ocean           | Road                    |
+| ESP          | DEU               | Road            | Air             | Road                    |
+| FRA          | TUR               | Road            | Ocean           | Road                    |
+| VNM          | KHM               | Air             | Road            | Road                    |
+| CZE          | TUN               | Ocean           | Road            | Ocean                   |
+| SVK          | GBR               | Air             | Road            | Ocean                   |
+| FRA          | SWE               | Air             | Road            | Road                    |
+| THA          | IND               | Air             | Road            | Road                    |
+| DEU          | KWT               | Air             | Ocean           | Road                    |
+| GBR          | DEU               | Road            | Air             | Ocean                   |
+| CAN          | CHL               | Air             | Ocean           | Ocean                   |
+| PRT          | FIN               | Road            | Air             | Road                    |
+| SVN          | VNM               | Road            | Ocean           | Road                    |
+| CHE          | SEN               | Ocean           | Air             | Air                     |
+| DEU          | ARM               | Air             | Road            | Air                     |
 ======================================================================
 
-✓ Ultimate evaluation complete!
+Ultimate evaluation complete.

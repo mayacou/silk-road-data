@@ -1,148 +1,148 @@
 {
     "accuracies": {
-        "model1": 0.5169315091774304,
-        "model2": 0.9207915533650578,
-        "model3": 0.6975378144119646
+        "model1": 0.5227453993341382,
+        "model2": 0.8937401675630191,
+        "model3": 0.6914498957304357
     },
     "improvements": {
-        "model2": 78.12641269058479,
-        "model3": 34.938149837668995
+        "model2": 70.97045114150139,
+        "model3": 32.272784535490814
     },
     "distributions": {
         "true": {
-            "Air": 34215,
-            "Ocean": 22098,
-            "Rail": 709,
-            "Road": 37122
+            "Air": 51716,
+            "Ocean": 33627,
+            "Rail": 886,
+            "Road": 50436
         },
         "model1": {
-            "Air": 14118,
-            "Ocean": 26288,
+            "Air": 21468,
+            "Ocean": 38056,
             "Rail": 0,
-            "Road": 53738
+            "Road": 77141
         },
         "model2": {
-            "Air": 34940,
-            "Ocean": 22434,
-            "Rail": 745,
-            "Road": 36025
+            "Air": 51378,
+            "Ocean": 34442,
+            "Rail": 1060,
+            "Road": 49785
         },
         "model3": {
-            "Air": 25248,
-            "Ocean": 34197,
-            "Rail": 229,
-            "Road": 34470
+            "Air": 37834,
+            "Ocean": 50025,
+            "Rail": 397,
+            "Road": 48409
         }
     },
     "error_stats": {
-        "total_ml_errors": 7457,
-        "total_clean_errors": 45478,
-        "mutual_failures": 4733,
-        "ml_failed_clean_succeeded": 2724,
-        "clean_failed_ml_succeeded": 40745
+        "total_ml_errors": 14522,
+        "total_clean_errors": 65224,
+        "mutual_failures": 9132,
+        "ml_failed_clean_succeeded": 5390,
+        "clean_failed_ml_succeeded": 56092
     },
     "audit_rows": [
         [
+            "FRA",
+            "QAT",
+            "Air",
+            "Ocean",
+            "Road"
+        ],
+        [
+            "ESP",
+            "DEU",
+            "Road",
+            "Air",
+            "Road"
+        ],
+        [
+            "FRA",
+            "TUR",
+            "Road",
+            "Ocean",
+            "Road"
+        ],
+        [
+            "VNM",
             "KHM",
-            "PHL",
+            "Air",
+            "Road",
+            "Road"
+        ],
+        [
+            "CZE",
+            "TUN",
+            "Ocean",
+            "Road",
+            "Ocean"
+        ],
+        [
+            "SVK",
+            "GBR",
             "Air",
             "Road",
             "Ocean"
+        ],
+        [
+            "FRA",
+            "SWE",
+            "Air",
+            "Road",
+            "Road"
+        ],
+        [
+            "THA",
+            "IND",
+            "Air",
+            "Road",
+            "Road"
+        ],
+        [
+            "DEU",
+            "KWT",
+            "Air",
+            "Ocean",
+            "Road"
         ],
         [
             "GBR",
-            "ESP",
+            "DEU",
             "Road",
             "Air",
             "Ocean"
         ],
         [
-            "BGR",
-            "FRA",
-            "Road",
+            "CAN",
+            "CHL",
             "Air",
-            "Air"
-        ],
-        [
-            "DEU",
-            "DNK",
-            "Air",
-            "Road",
-            "Road"
-        ],
-        [
-            "DEU",
-            "JPN",
             "Ocean",
-            "Air",
             "Ocean"
         ],
         [
-            "FRA",
-            "AUT",
+            "PRT",
+            "FIN",
             "Road",
             "Air",
             "Road"
         ],
         [
-            "FRA",
-            "ITA",
+            "SVN",
+            "VNM",
+            "Road",
             "Ocean",
-            "Road",
-            "Road"
-        ],
-        [
-            "BGR",
-            "ARM",
-            "Air",
-            "Road",
-            "Road"
-        ],
-        [
-            "DEU",
-            "FRA",
-            "Ocean",
-            "Road",
             "Road"
         ],
         [
             "CHE",
-            "PRT",
-            "Road",
+            "SEN",
+            "Ocean",
             "Air",
             "Air"
-        ],
-        [
-            "FRA",
-            "KGZ",
-            "Road",
-            "Air",
-            "Road"
         ],
         [
             "DEU",
-            "NOR",
-            "Road",
-            "Air",
-            "Air"
-        ],
-        [
-            "FRA",
-            "BEL",
-            "Road",
-            "Air",
-            "Road"
-        ],
-        [
-            "FRA",
-            "GRC",
-            "Air",
-            "Road",
-            "Air"
-        ],
-        [
-            "ROU",
-            "DEU",
+            "ARM",
             "Air",
             "Road",
             "Air"

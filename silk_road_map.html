@@ -27,7 +27,8 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 }
 #sr-title { font-size: 14px; font-weight: 600; color: #f0f6fc; letter-spacing: 0.02em; margin-right: 6px; flex-shrink: 0; }
 #title-tag { font-size: 10px; font-weight: 500; color: #7d8590; background: #21262d; border: 1px solid #30363d; border-radius: 20px; padding: 2px 8px; margin-right: 8px; flex-shrink: 0; }
-#fab-row  { display: flex; gap: 5px; flex: 1; overflow: hidden; }
+#fab-row  { display: flex; gap: 5px; flex: 1; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; min-width: 0; }
+#fab-row::-webkit-scrollbar { display: none; }
 #mode-row { display: flex; gap: 4px; flex-shrink: 0; }
 
 /* Live emissions counter */
@@ -52,6 +53,15 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 .mode-btn { padding: 3px 10px; font-size: 11px; font-family: inherit; border-radius: 20px; border: 1px solid #30363d; cursor: pointer; background: transparent; color: #7d8590; transition: all 0.15s; white-space: nowrap; }
 .mode-btn.on { background: #21262d; color: #f0f6fc; border-color: #484f58; }
 .mode-btn:hover { border-color: #484f58; color: #f0f6fc; }
+#view-toggle-box { position: absolute; top: 14px; left: 14px; z-index: 5; background: #161b22cc; border: 1px solid #30363d; border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; backdrop-filter: blur(4px); }
+#view-toggle-box .vt-label { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; color: #484f58; text-transform: uppercase; font-family: 'Inter', system-ui; }
+.view-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 11px; font-family: 'Inter', system-ui; color: #7d8590; background: none; border: none; padding: 0; transition: color 0.15s; white-space: nowrap; }
+.view-toggle:hover { color: #f0f6fc; }
+.vt-switch { width: 28px; height: 15px; border-radius: 8px; background: #30363d; border: 1px solid #484f58; position: relative; flex-shrink: 0; transition: background 0.2s, border-color 0.2s; }
+.vt-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 9px; height: 9px; border-radius: 50%; background: #7d8590; transition: transform 0.2s, background 0.2s; }
+.view-toggle.on .vt-switch { background: #f0883e33; border-color: #f0883e; }
+.view-toggle.on .vt-switch::after { transform: translateX(13px); background: #f0883e; }
+.view-toggle.on { color: #f0883e; }
 
 /* ── Main layout ── */
 #main { display: grid; grid-template-columns: 1fr 270px; height: 600px; border: 1px solid #30363d; border-radius: 0 0 12px 12px; overflow: hidden; }
@@ -65,11 +75,13 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 .land:hover  { fill: #e6edf3; }
 .land.active { fill: #e6edf3; }
 
-.route-bg   { fill: none; stroke-linecap: round; cursor: pointer; opacity: 0.55; transition: opacity 0.18s; }
-.route-bg:hover { opacity: 1; }
-.route-bg.sel   { opacity: 1; }
-.route-bg.dim   { opacity: 0.04; }
+.route-bg        { fill: none; stroke-linecap: round; cursor: pointer; opacity: 0.55; transition: opacity 0.18s; }
+.route-bg.agg    { opacity: 0.78; }
+.route-bg:hover  { opacity: 1; }
+.route-bg.sel    { opacity: 1; }
+.route-bg.dim    { opacity: 0.04; }
 .route-flow { fill: none; stroke-linecap: round; pointer-events: none; }
+.route-bg, .route-flow, .optimized-path { vector-effect: non-scaling-stroke; }
 
 /* Glow filter for selected route */
 #glow-filter { position: absolute; width: 0; height: 0; }
@@ -147,6 +159,13 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
       </svg>
       <div id="tip"></div>
       <div id="loading">Loading map…</div>
+      <div id="view-toggle-box">
+        <span class="vt-label">View</span>
+        <button id="detail-toggle" class="view-toggle" onclick="toggleDetail()">
+          <span class="vt-switch"></span>
+          <span id="vt-text">All routes</span>
+        </button>
+      </div>
       <div id="legend"></div>
       <div id="thickness-legend">
         <div class="tl-row"><div class="tl-line" style="width:40px;height:4px;opacity:0.7"></div><span class="tl-lbl">High volume</span></div>
@@ -161,7 +180,7 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
           <circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/>
           <path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/>
         </svg>
-        <div>Hover a country to see<br>its routes · stroke width<br>= trade volume</div>
+        <div>Click a country to see its<br>import and export routes. <br>·<br> stroke width<br>= trade volume</div>
       </div>
 
       <div id="country-info">
@@ -205,13 +224,12 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
           </div>
         </div>
         <div>
-          <div class="plbl">What-if by mode</div>
+          <div class="plbl">Alternative routes</div>
           <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
         <div class="foot">
           Emission factors: EPA GHG Hub 2025 + GLEC Framework v3.2<br><br>
-          Data: UN Comtrade 2023<br>
-          Note: cotton &amp; silk absent from dataset
+          Data: UN Comtrade 2023 · 6 materials · 4 transport modes
         </div>
       </div>
 
@@ -225,24 +243,21 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 
 const EMISSION_FACTORS = { Ocean:0.000015, Air:0.00109, Road:0.000105, Rail:0.000022 };
 const FABRICS = {
-  cotton:    { label:'Cotton',    color:'#3fb950' },
-  polyester: { label:'Polyester', color:'#58a6ff' },
-  silk:      { label:'Silk',      color:'#f0883e' },
-  wool:      { label:'Wool',      color:'#ff7b72' },
-  nylon:     { label:'Nylon',     color:'#d2a8ff' },
-  viscose:   { label:'Viscose',   color:'#a371f7' },
-  linen:     { label:'Linen',     color:'#e3b341' },
+  cotton:    { label:'Cotton',      color:'#3fb950' },
+  polyester: { label:'Synthetic',   color:'#58a6ff' },
+  silk:      { label:'Silk',        color:'#f0883e' },
+  wool:      { label:'Wool',        color:'#ff7b72' },
+  viscose:   { label:'Viscose',     color:'#a371f7' },
+  linen:     { label:'Linen/Hemp',  color:'#e3b341' },
 };
 const MODES = { Ocean:'Ship', Air:'Air', Road:'Road', Rail:'Rail' };
-const TOP_N = 20;
+let detailMode = false;
 
 let ALL_ROUTES=[], ROUTES=[];
+let RECOMMENDATIONS={};
 let activeFabs=new Set(), activeModes=new Set();
 let selRoute=null, hovCountry=null;
-let rg, ng, proj, pathFn, afId, maxCo2=1;
-
-// Scale for stroke width 
-let strokeScale;
+let rg, ng, proj, pathFn, afId, maxCo2=1, strokeScale;
 
 function fmt(v) {
   if(v>=1e9) return (v/1e9).toFixed(2)+'B';
@@ -251,15 +266,78 @@ function fmt(v) {
   return Math.round(v).toString();
 }
 
-function limitRoutes(all,n) {
-  const byFabric={};
-  all.forEach(r=>{ if(!byFabric[r.fabric]) byFabric[r.fabric]=[]; byFabric[r.fabric].push(r); });
-  const out=[];
-  Object.values(byFabric).forEach(g=>{
-    g.sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
-    out.push(...g.slice(0,n));
+// ── Overview: top 60 corridors by combined emissions ────────────────────────
+const OVERVIEW_N = 60;
+function aggregateRoutes(filtered) {
+  const byPair = {};
+  filtered.forEach(r => {
+    const key = r.fromISO + '|' + r.toISO;
+    if (!byPair[key]) byPair[key] = {
+      _isAgg: true, _count: 0, _fabEm: {}, _modeEm: {},
+      from: r.from, to: r.to, fromISO: r.fromISO, toISO: r.toISO,
+      fromCoords: r.fromCoords, toCoords: r.toCoords,
+      total_emissions_kgco2e: 0, volume_tonnes: 0,
+    };
+    const a = byPair[key];
+    a.total_emissions_kgco2e += r.total_emissions_kgco2e;
+    a.volume_tonnes          += r.volume_tonnes;
+    a._fabEm[r.fabric]  = (a._fabEm[r.fabric]  || 0) + r.total_emissions_kgco2e;
+    a._modeEm[r.mode]   = (a._modeEm[r.mode]   || 0) + r.total_emissions_kgco2e;
+    a._count++;
   });
-  return out;
+  return Object.values(byPair)
+    .map(a => {
+      a.fabric = Object.entries(a._fabEm).sort((x,y)=>y[1]-x[1])[0][0];
+      a.mode   = Object.entries(a._modeEm).sort((x,y)=>y[1]-x[1])[0][0];
+      a.id     = a.fromISO + '_' + a.toISO;
+      return a;
+    })
+    .sort((a,b) => b.total_emissions_kgco2e - a.total_emissions_kgco2e)
+    .slice(0, OVERVIEW_N);
+}
+
+// ── Toggle between overview and detail mode ──────────────────────────────────
+function toggleDetail() {
+  detailMode = !detailMode;
+  updateToggleBtn();
+  selRoute = null;
+  showPanel('empty');
+  renderRoutes();
+  updateCounter();
+}
+
+function updateToggleBtn() {
+  const btn = document.getElementById('detail-toggle');
+  const lbl = document.getElementById('vt-text');
+  if (detailMode) { btn.classList.add('on');  lbl.textContent = 'All routes'; }
+  else            { btn.classList.remove('on'); lbl.textContent = 'Top corridors'; }
+}
+
+// ── Click on an overview arc: list that pair's individual routes in the panel ─
+function selectPairRoutes(agg) {
+  selRoute = agg;
+  renderRoutes();
+  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const matching = vis.filter(r=>r.fromISO===agg.fromISO&&r.toISO===agg.toISO)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  document.getElementById('ci-name').textContent = `${agg.from} → ${agg.to}`;
+  document.getElementById('ci-sub').textContent  = `${matching.length} trade route${matching.length!==1?'s':''}`;
+  const list = document.getElementById('ci-routes'); list.innerHTML = '';
+  matching.forEach(r => {
+    const color = FABRICS[r.fabric].color;
+    const item  = document.createElement('div');
+    item.className = 'ctry-route-item';
+    item.innerHTML = `
+      <div class="ctry-dot" style="background:${color}"></div>
+      <div class="ctry-route-text">
+        <span style="color:#c9d1d9;font-weight:500">${FABRICS[r.fabric].label}</span><br>
+        ${MODES[r.mode]||r.mode} · ${Math.round(r.distance_km).toLocaleString()} km
+      </div>
+      <div class="ctry-route-co2">${fmt(r.total_emissions_kgco2e)}</div>`;
+    item.onclick = () => { detailMode=true; updateToggleBtn(); selectRoute(r); };
+    list.appendChild(item);
+  });
+  showPanel('country');
 }
 
 function makeGeoLine(from,to,steps=80) {
@@ -335,13 +413,6 @@ function buildControls() {
   activeFabs  = new Set(ROUTES.map(r=>r.fabric));
   activeModes = new Set(ROUTES.map(r=>r.mode));
 
-  // Stroke scale: sqrt so thick routes don't overwhelm thin ones
-  const volumes = ROUTES.map(r=>r.volume_tonnes);
-  strokeScale = d3.scaleSqrt()
-    .domain([d3.min(volumes), d3.max(volumes)])
-    .range([1, 6])
-    .clamp(true);
-
   const fabRow=document.getElementById('fab-row');
   const modeRow=document.getElementById('mode-row');
   fabRow.innerHTML=''; modeRow.innerHTML='';
@@ -386,7 +457,13 @@ function renderRoutes() {
   if(afId) cancelAnimationFrame(afId);
   rg.selectAll('*').remove(); ng.selectAll('*').remove();
 
-  const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const filtered=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis=detailMode ? filtered : aggregateRoutes(filtered);
+
+  // Recompute stroke scale against whatever is being displayed
+  const vols=vis.map(r=>r.volume_tonnes);
+  strokeScale=d3.scaleSqrt().domain([d3.min(vols),d3.max(vols)]).range([1,6]).clamp(true);
+
   const nodes=new Map();
   vis.forEach(r=>{nodes.set(r.from,r.fromCoords);nodes.set(r.to,r.toCoords);});
 
@@ -398,17 +475,17 @@ function renderRoutes() {
     const sw=strokeScale(r.volume_tonnes);
 
     rg.append('path').datum(r)
-      .attr('class',`route-bg${isSel?' sel':''}${isDim?' dim':''}`)
+      .attr('class',`route-bg${r._isAgg?' agg':''}${isSel?' sel':''}${isDim?' dim':''}`)
       .attr('d',pathFn(makeGeoLine(r.fromCoords,r.toCoords)))
       .attr('stroke',color)
       .attr('stroke-width', isSel ? sw+1.5 : sw)
       .attr('filter', isSel ? 'url(#glow)' : null)
       .on('mouseover',(ev,d)=>showTip(ev,d))
       .on('mouseout',()=>hideTip())
-      .on('click',(ev,d)=>selectRoute(d));
+      .on('click',(ev,d)=>d._isAgg?selectPairRoutes(d):selectRoute(d));
   });
 
-  // Animated dashes 
+  // Animated dashes
   const fp=[];
   sorted.forEach((r,i)=>{
     const color=FABRICS[r.fabric].color;
@@ -422,11 +499,12 @@ function renderRoutes() {
       .attr('filter', isSel?'url(#glow)':null)
       .node();
     const len=el.getTotalLength();
-    // Thicker routes get longer dashes
-    const dashLen=Math.max(8, len*0.05*Math.sqrt(sw));
-    const gapLen =Math.max(20, len*0.18);
+    // Overview: slower, longer dashes to feel like corridors; detail: fast short dashes
+    const dashLen = r._isAgg ? Math.max(16, len*0.08) : Math.max(8, len*0.05*Math.sqrt(sw));
+    const gapLen  = r._isAgg ? Math.max(40, len*0.28) : Math.max(20, len*0.18);
+    const speed   = r._isAgg ? 12+(i%4)*3 : 20+(i%8)*5;
     el.setAttribute('stroke-dasharray',`${dashLen} ${gapLen}`);
-    fp.push({el,len,speed:20+(i%8)*5,offset:Math.random()*len});
+    fp.push({el,len,speed,offset:Math.random()*len});
   });
 
   function tick(){
@@ -448,20 +526,47 @@ function renderRoutes() {
     const fabs=[...new Set(vis.filter(r=>r.from===name||r.to===name).map(r=>r.fabric))];
     const color=fabs.length===1?FABRICS[fabs[0]].color:'#8b949e';
     const r=nodeScale(nodeCounts.get(name)||1);
-    ng.append('circle').attr('class','nd').attr('cx',pt[0]).attr('cy',pt[1]).attr('r',r).attr('fill',color);
-    ng.append('text').attr('class','nd-lbl').attr('x',pt[0]+r+3).attr('y',pt[1]+1).attr('dominant-baseline','middle').text(name);
+    
+    // Draw the dot and save its base radius in 'data-r'
+    ng.append('circle')
+      .attr('class','nd')
+      .attr('cx',pt[0]).attr('cy',pt[1])
+      .attr('r',r)
+      .attr('data-r', r)
+      .attr('fill',color);
+      
+    // Draw the text and save its base positions
+    ng.append('text')
+      .attr('class','nd-lbl')
+      .attr('data-x', pt[0])
+      .attr('data-y', pt[1])
+      .attr('data-offset', r + 3)
+      .attr('x', pt[0] + r + 3)
+      .attr('y', pt[1] + 1)
+      .attr('dominant-baseline','middle')
+      .text(name);
   });
 }
 
 // ── Tooltip ───────────────────────────────────────────────────────
 const tipEl=document.getElementById('tip');
 function showTip(ev,r){
-  const color=FABRICS[r.fabric].color;
-  tipEl.innerHTML=`
-    <span style="font-weight:600;color:${color}">${r.from} → ${r.to}</span><br>
-    <span style="color:#8b949e">${FABRICS[r.fabric].label} · ${MODES[r.mode]||r.mode}</span><br>
-    <span style="color:#f0f6fc;font-weight:500">${fmt(r.total_emissions_kgco2e)} kg CO₂e</span><br>
-    <span style="color:#484f58">${r.volume_tonnes.toLocaleString()} t · ${Math.round(r.distance_km).toLocaleString()} km</span>`;
+  if(r._isAgg){
+    const fabList=Object.entries(r._fabEm).sort((a,b)=>b[1]-a[1])
+      .map(([f])=>FABRICS[f]?.label||f).join(' · ');
+    tipEl.innerHTML=`
+      <span style="font-weight:600;color:#f0f6fc">${r.from} → ${r.to}</span><br>
+      <span style="color:#8b949e">${r._count} route${r._count!==1?'s':''} · ${fabList}</span><br>
+      <span style="color:#f0f6fc;font-weight:500">${fmt(r.total_emissions_kgco2e)} kg CO₂e total</span><br>
+      <span style="color:#484f58">${fmt(r.volume_tonnes*1000)} kg combined</span>`;
+  } else {
+    const color=FABRICS[r.fabric].color;
+    tipEl.innerHTML=`
+      <span style="font-weight:600;color:${color}">${r.from} → ${r.to}</span><br>
+      <span style="color:#8b949e">${FABRICS[r.fabric].label} · ${MODES[r.mode]||r.mode}</span><br>
+      <span style="color:#f0f6fc;font-weight:500">${fmt(r.total_emissions_kgco2e)} kg CO₂e</span><br>
+      <span style="color:#484f58">${r.volume_tonnes.toLocaleString()} t · ${Math.round(r.distance_km).toLocaleString()} km</span>`;
+  }
   const box=document.getElementById('sr-map').getBoundingClientRect();
   tipEl.style.left=Math.min(ev.clientX-box.left+14,box.width-215)+'px';
   tipEl.style.top=Math.min(ev.clientY-box.top+14,box.height-100)+'px';
@@ -487,19 +592,37 @@ function selectRoute(r){
   document.getElementById('d-vol').textContent=r.volume_tonnes.toLocaleString()+' t';
 
   const cmpEl=document.getElementById('d-cmp'); cmpEl.innerHTML='';
-  const wKg=r.volume_tonnes*1000, dist=r.distance_km;
-  const vals=Object.keys(EMISSION_FACTORS).map(m=>({mode:m,co2:wKg*dist*EMISSION_FACTORS[m]}));
-  const maxM=Math.max(...vals.map(x=>x.co2));
-  vals.forEach(({mode:m,co2:c})=>{
-    const pct=Math.round(c/maxM*100), active=m===r.mode;
+  const routeKey=r.fromISO + '_' + r.toISO;
+  const alternatives=RECOMMENDATIONS[routeKey]||[];
+  
+  if(alternatives.length===0){
+    cmpEl.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:10px;">No alternatives found</div>';
+    return;
+  }
+  
+  alternatives.slice(0,3).forEach((alt,idx)=>{
+    const altCo2=alt.total_emissions;
+    const savings=alt.savings_pct;
+    const timeImpact=alt.time_impact_days;
+    const hops=alt.num_hops;
+    const savingsColor=savings>=0?'#3fb950':'#f85149';
+    const savingsText=savings>=0?`${savings.toFixed(1)}% less CO₂e`:`${Math.abs(savings).toFixed(1)}% more CO₂e`;
+    const timeColor=timeImpact<=0?'#3fb950':'#8b949e';
+    const timeStr=timeImpact>0?`+${timeImpact.toFixed(1)} days vs direct`
+                 :timeImpact<0?`${timeImpact.toFixed(1)} days vs direct`
+                 :'same transit time';
+
     const div=document.createElement('div');
     div.innerHTML=`
-      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-        <span style="color:${active?'#c9d1d9':'#484f58'}">${MODES[m]||m}</span>
-        <span style="font-weight:${active?600:400};color:${active?color:'#30363d'};">${fmt(c)} kg</span>
-      </div>
-      <div style="background:#21262d;border-radius:3px;height:3px;overflow:hidden;">
-        <div style="width:${pct}%;height:100%;border-radius:3px;background:${active?color:'#30363d'};transition:width 0.5s;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div style="font-size:11px;font-weight:500;color:#c9d1d9;margin-bottom:2px;">Route ${idx+1}: ${alt.path_str}</div>
+          <div style="font-size:10px;color:${timeColor};margin-bottom:3px;">${hops} hop${hops>1?'s':''} · ${timeStr}</div>
+        </div>
+        <div style="text-align:right;margin-left:8px;flex-shrink:0;">
+          <div style="font-size:12px;font-weight:600;color:#f0f6fc;">${fmt(altCo2)} kg</div>
+          <div style="font-size:10px;color:${savingsColor};font-weight:500;margin-top:2px;">${savingsText}</div>
+        </div>
       </div>`;
     cmpEl.appendChild(div);
   });
@@ -515,10 +638,12 @@ const loadEl=document.getElementById('loading');
 
 Promise.all([
   fetch('routes.json').then(r=>r.json()),
+  fetch('data/recommendations.json').then(r=>r.json()),
   fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r=>r.json())
-]).then(([routesData,world])=>{
+]).then(([routesData,recommendationsData,world])=>{
   ALL_ROUTES=routesData;
-  ROUTES=limitRoutes(ALL_ROUTES,TOP_N);
+  RECOMMENDATIONS=recommendationsData;
+  ROUTES=ALL_ROUTES;
   buildControls();
   
   requestAnimationFrame(()=>{
@@ -532,29 +657,90 @@ Promise.all([
     svg.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d',pathFn);
     svg.append('path').datum(d3.geoGraticule()()).attr('class','graticule').attr('d',pathFn);
 
-    svg.append('g').selectAll('path')
+    const landGroup=svg.append('g').attr('class','land-group');
+    landGroup.selectAll('path')
       .data(topojson.feature(world,world.objects.countries).features)
       .join('path').attr('class','land').attr('d',pathFn)
       .on('mouseenter',function(ev,d){
         d3.select(this).classed('active',true);
-        const isoName=d.properties?.name||'';
-        const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode));
-        const allNames=[...new Set([...vis.map(r=>r.from),...vis.map(r=>r.to)])];
-
-        const match=allNames.find(n=>
-          n.toLowerCase()===isoName.toLowerCase()||
-          n.toLowerCase().includes(isoName.toLowerCase())||
-          isoName.toLowerCase().includes(n.toLowerCase())
-        );
-        if(match) onCountryEnter(match);
       })
       .on('mouseleave',function(){
         d3.select(this).classed('active',false);
-        onCountryLeave();
+      })
+      .on('click', function(ev, d) {
+        ev.stopPropagation();
+        const rawName = d.properties?.name || '';
+        const isoName = rawName.toLowerCase();
+        
+        // ALIAS DICTIONARY: Translates Natural Earth map names to UN Comtrade names
+        const ALIASES = {
+            "united states of america": "usa",
+            "united states": "usa",
+            "türkiye": "turkey",
+            "viet nam": "vietnam",
+            "russian federation": "russia",
+            "rep. of korea": "south korea",
+            "united kingdom": "uk"
+        };
+        
+        // If the map name is in our dictionary, use the Comtrade name instead
+        const searchName = ALIASES[isoName] || isoName;
+
+        const vis = ROUTES.filter(r => activeFabs.has(r.fabric) && activeModes.has(r.mode));
+        const allNames = [...new Set([...vis.map(r => r.from), ...vis.map(r => r.to)])];
+        
+        // Find the match
+        const match = allNames.find(n => {
+          const nLower = n.toLowerCase();
+          return nLower === searchName || 
+                 nLower.includes(searchName) || 
+                 searchName.includes(nLower) ||
+                 (ALIASES[nLower] && ALIASES[nLower] === searchName);
+        });
+
+        if(match) onCountryEnter(match);
+        else onCountryLeave();
       });
 
     rg=svg.append('g');
     ng=svg.append('g');
+    
+    // Add zoom behavior
+    const zoom=d3.zoom()
+      .scaleExtent([1,8])
+      .on('zoom',(ev)=>{
+        const k = ev.transform.k; // The current zoom level multiplier
+        
+        landGroup.attr('transform',ev.transform);
+        rg.attr('transform',ev.transform);
+        ng.attr('transform',ev.transform);
+        
+        // Counter-scale the dots so they shrink as the map grows
+        ng.selectAll('.nd').attr('r', function() {
+            return d3.select(this).attr('data-r') / k;
+        });
+        
+        // Counter-scale the text and keep it locked to the shrinking dots
+        ng.selectAll('.nd-lbl')
+          .style('font-size', (8.5 / k) + 'px')
+          .attr('x', function() { 
+              return parseFloat(d3.select(this).attr('data-x')) + (parseFloat(d3.select(this).attr('data-offset')) / k); 
+          })
+          .attr('y', function() {
+              return parseFloat(d3.select(this).attr('data-y')) + (1 / k);
+          });
+          
+        // Counter-scale the green alternative route markers (if they exist)
+        rg.selectAll('.hop-marker').attr('r', 4 / k);
+      });
+    svg.call(zoom);
+    
+    // Click on SVG background to clear selection and reset zoom
+    svg.on('click',()=>{
+      onCountryLeave();
+      svg.transition().duration(750).call(zoom.transform,d3.zoomIdentity.translate(0,0).scale(1));
+    });
+    
     loadEl.style.display='none';
     renderRoutes();
     showPanel('empty');
