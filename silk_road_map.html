@@ -104,7 +104,7 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #detail { display: none; flex-direction: column; gap: 14px; }
 #country-info { display: none; flex-direction: column; gap: 10px; }
 
-.plbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: #484f58; text-transform: uppercase; margin-bottom: 6px; }
+.plbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: #ffffff; text-transform: uppercase; margin-bottom: 6px; }
 .scard { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; }
 .snum { font-size: 24px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
 .ssub { font-size: 11px; color: #484f58; margin-top: 3px; }
@@ -180,11 +180,11 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
         </button>
         <button id="altmode-toggle" class="view-toggle" onclick="toggleAltMode()">
           <span class="vt-switch"></span>
-          <span>Alt mode saves CO₂</span>
+          <span>Alt Transportation (saves CO₂)</span>
         </button>
         <button id="althop-toggle" class="view-toggle" onclick="toggleAltHop()">
           <span class="vt-switch"></span>
-          <span>Multi-hop saves CO₂</span>
+          <span>Alt Routes (saves CO₂)</span>
         </button>
       </div>
       <div id="legend"></div>
@@ -336,7 +336,7 @@ function updateToggleBtn() {
   const btn = document.getElementById('detail-toggle');
   const lbl = document.getElementById('vt-text');
   if (detailMode) { btn.classList.add('on');  lbl.textContent = 'All routes'; }
-  else            { btn.classList.remove('on'); lbl.textContent = 'Top corridors'; }
+  else            { btn.classList.remove('on'); lbl.textContent = 'Top routes'; }
 }
 
 function toggleAltMode() {
