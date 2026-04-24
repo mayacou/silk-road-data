@@ -178,6 +178,14 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
           <span class="vt-switch"></span>
           <span id="vt-text">All routes</span>
         </button>
+        <button id="altmode-toggle" class="view-toggle" onclick="toggleAltMode()">
+          <span class="vt-switch"></span>
+          <span>Alt mode saves CO₂</span>
+        </button>
+        <button id="althop-toggle" class="view-toggle" onclick="toggleAltHop()">
+          <span class="vt-switch"></span>
+          <span>Multi-hop saves CO₂</span>
+        </button>
       </div>
       <div id="legend"></div>
       <div id="thickness-legend">
@@ -273,6 +281,8 @@ let ALL_ROUTES=[], ROUTES=[];
 let RECOMMENDATIONS={};
 let activeFabs=new Set(), activeModes=new Set();
 let selRoute=null, hovCountry=null, selCountry=null;
+let filterAltMode=false, filterAltHop=false;
+let ALT_MODE_ROUTE_IDS=new Set(), ALT_HOP_PAIRS=new Set();
 let rg, ng, proj, pathFn, afId, maxCo2=1, strokeScale;
 
 function fmt(v) {
@@ -329,11 +339,25 @@ function updateToggleBtn() {
   else            { btn.classList.remove('on'); lbl.textContent = 'Top corridors'; }
 }
 
+function toggleAltMode() {
+  filterAltMode = !filterAltMode;
+  document.getElementById('altmode-toggle').classList.toggle('on', filterAltMode);
+  renderRoutes(); updateCounter();
+  if(!selRoute && !selCountry) showPanel('empty');
+}
+
+function toggleAltHop() {
+  filterAltHop = !filterAltHop;
+  document.getElementById('althop-toggle').classList.toggle('on', filterAltHop);
+  renderRoutes(); updateCounter();
+  if(!selRoute && !selCountry) showPanel('empty');
+}
+
 // ── Click on an overview arc: list that pair's individual routes in the panel ─
 function selectPairRoutes(agg) {
   selRoute = agg;
   renderRoutes();
-  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis = getFilteredRoutes();
   const matching = vis.filter(r=>r.fromISO===agg.fromISO&&r.toISO===agg.toISO)
     .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
   document.getElementById('ci-name').textContent = `${agg.from} → ${agg.to}`;
@@ -361,9 +385,19 @@ function makeGeoLine(from,to,steps=80) {
   return { type:'Feature', geometry:{ type:'LineString', coordinates:d3.range(steps+1).map(i=>interp(i/steps)) }};
 }
 
+// ── Central route filter (all active filters combined) ───────────────────────
+function getFilteredRoutes() {
+  return ROUTES.filter(r => {
+    if(!activeFabs.has(r.fabric)||!activeModes.has(r.mode)||!FABRICS[r.fabric]) return false;
+    if(filterAltMode && !ALT_MODE_ROUTE_IDS.has(r.id)) return false;
+    if(filterAltHop && !ALT_HOP_PAIRS.has(r.fromISO+'_'+r.toISO) && !ALT_HOP_PAIRS.has(r.toISO+'_'+r.fromISO)) return false;
+    return true;
+  });
+}
+
 // ── Live emissions counter ───
 function updateCounter() {
-  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis = getFilteredRoutes();
   const total = vis.reduce((s,r)=>s+r.total_emissions_kgco2e, 0);
   const el = document.getElementById('ec-val');
   el.textContent = vis.length === 0 ? '—' : fmt(total);
@@ -372,6 +406,9 @@ function updateCounter() {
 
 // ── Reset all filters ────────────────────────────────────────────────
 function resetFilters() {
+  filterAltMode=false; filterAltHop=false;
+  document.getElementById('altmode-toggle').classList.remove('on');
+  document.getElementById('althop-toggle').classList.remove('on');
   activeFabs = new Set(ROUTES.map(r=>r.fabric));
   activeModes = new Set(ROUTES.map(r=>r.mode));
   document.querySelectorAll('.fab-btn').forEach(b=>b.classList.remove('off'));
@@ -383,7 +420,7 @@ function resetFilters() {
 // ── Default panel: top high-emission routes with savings potential ───
 function renderDefaultPanel() {
   const el = document.getElementById('empty');
-  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis = getFilteredRoutes();
 
   if(vis.length===0) {
     el.className='no-data';
@@ -453,7 +490,7 @@ function onCountryEnter(name) {
   selCountry = name;
   renderRoutes();
 
-  const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const vis=getFilteredRoutes();
   const allMatching=vis.filter(r=>r.from===name||r.to===name)
     .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
   const matching=allMatching.slice(0,8);
@@ -544,7 +581,7 @@ function renderRoutes() {
   if(afId) cancelAnimationFrame(afId);
   rg.selectAll('*').remove(); ng.selectAll('*').remove();
 
-  const filtered=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+  const filtered=getFilteredRoutes();
   let vis;
   if(selCountry) {
     // Individual routes for the selected country, top 8 by emissions — mirrors the panel exactly
@@ -798,6 +835,20 @@ Promise.all([
   ALL_ROUTES=routesData;
   RECOMMENDATIONS=recommendationsData;
   ROUTES=ALL_ROUTES;
+
+  // Precompute filter sets so toggles don't recompute on every render
+  ALT_MODE_ROUTE_IDS = new Set(
+    ROUTES.filter(r => {
+      const curEm = r.volume_tonnes * r.distance_km * EMISSION_FACTORS[r.mode];
+      return Object.entries(EMISSION_FACTORS).some(([m,ef]) => m!==r.mode && r.volume_tonnes*r.distance_km*ef < curEm);
+    }).map(r => r.id)
+  );
+  ALT_HOP_PAIRS = new Set(
+    Object.entries(RECOMMENDATIONS)
+      .filter(([,alts]) => alts.some(a => a.savings_pct > 0))
+      .map(([key]) => key)
+  );
+
   buildControls();
   
   requestAnimationFrame(()=>{
