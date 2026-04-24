@@ -97,7 +97,10 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #sr-panel::-webkit-scrollbar { width: 4px; }
 #sr-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-#empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #484f58; font-size: 12px; text-align: center; padding: 20px; line-height: 1.7; }
+#empty { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 4px 0; overflow-y: auto; }
+#empty.no-data { align-items: center; justify-content: center; color: #484f58; font-size: 12px; text-align: center; padding: 20px; line-height: 1.7; }
+.reset-btn { padding: 3px 9px; font-size: 11px; font-family: inherit; border-radius: 20px; border: 1px solid #30363d; cursor: pointer; background: transparent; color: #484f58; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+.reset-btn:hover { border-color: #f85149; color: #f85149; }
 #detail { display: none; flex-direction: column; gap: 14px; }
 #country-info { display: none; flex-direction: column; gap: 10px; }
 
@@ -148,6 +151,7 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
     <span id="title-tag">2023 · UN Comtrade</span>
     <div id="fab-row"></div>
     <div id="mode-row"></div>
+    <button class="reset-btn" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
     <div id="emissions-counter">
       <span class="ec-label">Visible CO₂e</span>
       <span class="ec-value" id="ec-val">—</span>
@@ -184,17 +188,14 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
     </div>
     <div id="sr-panel">
 
-      <div id="empty">
-        <svg width="32" height="32" viewBox="0 0 28 28" fill="none" style="opacity:0.2">
-          <circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/>
-          <path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/>
-        </svg>
-        <div>Click a country to see its<br>import and export routes. <br>·<br> stroke width<br>= trade volume</div>
-      </div>
+      <div id="empty"></div>
 
       <div id="country-info">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="onCountryLeave()" style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:3px 8px;font-size:11px;color:#8b949e;cursor:pointer;font-family:inherit;">← Back</button>
+          <div class="plbl" style="margin-bottom:0;">Country</div>
+        </div>
         <div>
-          <div class="plbl">Country</div>
           <div id="ci-name" style="font-size:15px;font-weight:600;color:#f0f6fc;"></div>
           <div id="ci-sub"  style="font-size:11px;color:#484f58;margin-top:3px;"></div>
         </div>
@@ -271,7 +272,7 @@ let detailMode = false;
 let ALL_ROUTES=[], ROUTES=[];
 let RECOMMENDATIONS={};
 let activeFabs=new Set(), activeModes=new Set();
-let selRoute=null, hovCountry=null;
+let selRoute=null, hovCountry=null, selCountry=null;
 let rg, ng, proj, pathFn, afId, maxCo2=1, strokeScale;
 
 function fmt(v) {
@@ -369,29 +370,101 @@ function updateCounter() {
   el.style.color = '#f0f6fc';
 }
 
+// ── Reset all filters ────────────────────────────────────────────────
+function resetFilters() {
+  activeFabs = new Set(ROUTES.map(r=>r.fabric));
+  activeModes = new Set(ROUTES.map(r=>r.mode));
+  document.querySelectorAll('.fab-btn').forEach(b=>b.classList.remove('off'));
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.add('on'));
+  updateCounter(); renderRoutes();
+  if(!selRoute && !selCountry) showPanel('empty');
+}
+
+// ── Default panel: top high-emission routes with savings potential ───
+function renderDefaultPanel() {
+  const el = document.getElementById('empty');
+  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+
+  if(vis.length===0) {
+    el.className='no-data';
+    el.innerHTML=`<svg width="32" height="32" viewBox="0 0 28 28" fill="none" style="opacity:0.2"><circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/><path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/></svg><div>No routes visible.<br>Use ↺ Reset to restore filters.</div>`;
+    return;
+  }
+
+  el.className='';
+
+  // Annotate every route with its best what-if saving
+  const annotated = vis.map(r=>{
+    const alts = Object.entries(EMISSION_FACTORS)
+      .filter(([m])=>m!==r.mode)
+      .map(([m,ef])=>({mode:m, em: r.volume_tonnes*r.distance_km*ef}));
+    const best = alts.sort((a,b)=>a.em-b.em)[0];
+    const saving = (r.total_emissions_kgco2e - best.em) / r.total_emissions_kgco2e * 100;
+    return {...r, bestAltMode: best.mode, savingPct: saving};
+  });
+
+  // Prefer routes with meaningful savings (Road/Air → Ship), fill rest with highest emitters
+  const withSavings = annotated.filter(r=>r.savingPct>30)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const withoutSavings = annotated.filter(r=>r.savingPct<=30)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const scored = [...withSavings, ...withoutSavings].slice(0,8);
+
+  el.innerHTML=`
+    <div class="plbl" style="margin-bottom:2px;">High-Impact Routes</div>
+    <div style="font-size:10px;color:#484f58;margin-bottom:4px;">Routes where switching transport mode could cut CO₂e</div>`;
+
+  scored.forEach(r=>{
+    const color = FABRICS[r.fabric].color;
+    const dir = '→';
+    const hasSaving = r.savingPct > 1;
+    const savingLabel = hasSaving
+      ? `<span style="color:#3fb950;font-size:9px;font-weight:500">${MODE_LABELS[r.bestAltMode]} saves ${r.savingPct.toFixed(0)}%</span>`
+      : `<span style="color:#484f58;font-size:9px;">already lowest-emission mode</span>`;
+
+    const item = document.createElement('div');
+    item.className='ctry-route-item';
+    item.innerHTML=`
+      <div class="ctry-dot" style="background:${color}"></div>
+      <div class="ctry-route-text" style="flex:1;">
+        <span style="color:#c9d1d9;font-weight:500">${r.from} ${dir} ${r.to}</span><br>
+        <span style="color:#484f58">${FABRICS[r.fabric].label} · ${MODE_LABELS[r.mode]||r.mode}</span>
+        <span style="margin-left:6px;">${savingLabel}</span>
+      </div>
+      <div class="ctry-route-co2">${fmt(r.total_emissions_kgco2e)}</div>`;
+    item.onclick=()=>{ detailMode=true; updateToggleBtn(); selectRoute(r); };
+    el.appendChild(item);
+  });
+}
+
 // ── Panels ──
 function showPanel(which) {
-  document.getElementById('empty').style.display        = which==='empty'   ? 'flex' : 'none';
+  const emptyEl = document.getElementById('empty');
+  emptyEl.style.display        = which==='empty'   ? 'flex' : 'none';
   document.getElementById('country-info').style.display = which==='country' ? 'flex' : 'none';
   document.getElementById('detail').style.display       = which==='detail'  ? 'flex' : 'none';
+  if(which==='empty') renderDefaultPanel();
 }
 
 // ── Country hover ──
 function onCountryEnter(name) {
   if(selRoute) return;
   hovCountry = name;
-  rg.selectAll('.route-bg')
-    .classed('sel', d=>d.from===name||d.to===name)
-    .classed('dim', d=>d.from!==name&&d.to!==name);
+  selCountry = name;
+  renderRoutes();
 
   const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
-  const matching=vis.filter(r=>r.from===name||r.to===name)
-    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e).slice(0,8);
+  const allMatching=vis.filter(r=>r.from===name||r.to===name)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const matching=allMatching.slice(0,8);
 
   if(!matching.length){ showPanel('empty'); return; }
 
   document.getElementById('ci-name').textContent=name;
-  document.getElementById('ci-sub').textContent=`${matching.length} active trade route${matching.length>1?'s':''}`;
+  const total=allMatching.length;
+  document.getElementById('ci-sub').textContent=total>8
+    ? `Top 8 of ${total} trade routes`
+    : `${total} trade route${total>1?'s':''}`;
 
   const list=document.getElementById('ci-routes'); list.innerHTML='';
   matching.forEach(r=>{
@@ -416,6 +489,7 @@ function onCountryEnter(name) {
 function onCountryLeave() {
   if(selRoute) return;
   hovCountry=null;
+  selCountry=null;
   renderRoutes();
   showPanel('empty');
 }
@@ -471,7 +545,14 @@ function renderRoutes() {
   rg.selectAll('*').remove(); ng.selectAll('*').remove();
 
   const filtered=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
-  const vis=detailMode ? filtered : aggregateRoutes(filtered);
+  let vis;
+  if(selCountry) {
+    // Individual routes for the selected country, top 8 by emissions — mirrors the panel exactly
+    vis = filtered.filter(r=>r.from===selCountry||r.to===selCountry)
+      .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e).slice(0,8);
+  } else {
+    vis = detailMode ? filtered : aggregateRoutes(filtered);
+  }
 
   // Recompute stroke scale against whatever is being displayed
   const vols=vis.map(r=>r.volume_tonnes);
