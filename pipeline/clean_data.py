@@ -173,6 +173,11 @@ def main():
     countries, cont_col = load_map()
 
     raw_base = os.path.join(BASE_DIR, "data", "raw")
+    if not os.path.isdir(raw_base):
+        print(f"No raw data directory found at {raw_base}.")
+        print("Skipping clean_data step; existing processed outputs will be left unchanged.")
+        return
+
     years = sorted([
         d for d in os.listdir(raw_base)
         if os.path.isdir(os.path.join(raw_base, d)) and d.isdigit()
