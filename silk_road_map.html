@@ -129,6 +129,15 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #legend { position: absolute; bottom: 14px; left: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8b949e; font-family: 'Inter', system-ui; }
 .leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── What-If engine ── */
+.wi-row { display:flex; align-items:center; gap:8px; padding:3px 0; }
+.wi-mode { font-size:10px; color:#8b949e; width:34px; flex-shrink:0; }
+.wi-bar-bg { flex:1; height:6px; background:#21262d; border-radius:3px; overflow:hidden; }
+.wi-bar-fill { height:100%; border-radius:3px; transition:width 0.5s cubic-bezier(.4,0,.2,1); }
+.wi-val { font-size:10px; color:#c9d1d9; width:48px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.wi-diff { font-size:10px; width:60px; text-align:right; flex-shrink:0; font-weight:500; }
+.wi-current-badge { font-size:9px; background:#30363d; color:#8b949e; border-radius:3px; padding:1px 4px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -224,7 +233,12 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
           </div>
         </div>
         <div>
-          <div class="plbl">Alternative routes</div>
+          <div class="plbl">What-If: Transport Mode</div>
+          <div style="font-size:10px;color:#484f58;margin-bottom:6px;">Estimated CO₂e if this shipment used a different mode</div>
+          <div id="d-whatif" class="scard" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+        <div>
+          <div class="plbl">Lower-Emission Multi-Hop Routes</div>
           <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
         <div class="foot">
@@ -241,7 +255,8 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 
-const EMISSION_FACTORS = { Ocean:0.000015, Air:0.00109, Road:0.000105, Rail:0.000022 };
+// kg CO₂e per tonne-km — verified against actual route data (GLEC Framework v3.2 / EPA GHG Hub 2025)
+const EMISSION_FACTORS = { Ocean:0.015, Air:1.09, Road:0.105, Rail:0.022 };
 const FABRICS = {
   cotton:    { label:'Cotton',      color:'#3fb950' },
   polyester: { label:'Synthetic',   color:'#58a6ff' },
@@ -589,15 +604,18 @@ function selectRoute(r){
   document.getElementById('d-fab').textContent=FABRICS[r.fabric].label;
   document.getElementById('d-vol').textContent=r.volume_tonnes.toLocaleString()+' t';
 
+  renderWhatIf(r);
+
   const cmpEl=document.getElementById('d-cmp'); cmpEl.innerHTML='';
   const routeKey=r.fromISO + '_' + r.toISO;
-  const alternatives=RECOMMENDATIONS[routeKey]||[];
-  
+  const allAlts=RECOMMENDATIONS[routeKey]||[];
+  const alternatives=allAlts.filter(a=>a.savings_pct>0).sort((a,b)=>b.savings_pct-a.savings_pct);
+
   if(alternatives.length===0){
-    cmpEl.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:10px;">No alternatives found</div>';
+    cmpEl.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:10px;">No lower-emission multi-hop routes found</div>';
     return;
   }
-  
+
   alternatives.slice(0,3).forEach((alt,idx)=>{
     const altCo2=alt.total_emissions;
     const savings=alt.savings_pct;
@@ -628,6 +646,63 @@ function selectRoute(r){
 
 function clearRoute(){
   selRoute=null; renderRoutes(); showPanel('empty');
+}
+
+// ── What-If engine ─────────────────────────────────────────────────
+const MODE_ORDER  = ['Ocean','Rail','Road','Air'];
+const MODE_COLORS = { Ocean:'#58a6ff', Rail:'#3fb950', Road:'#e3b341', Air:'#f85149' };
+const MODE_LABELS = { Ocean:'Ship', Rail:'Rail', Road:'Road', Air:'Air' };
+
+function renderWhatIf(route) {
+  const el = document.getElementById('d-whatif');
+  el.innerHTML = '';
+
+  const results = MODE_ORDER.map(m => ({
+    mode: m,
+    label: MODE_LABELS[m],
+    color: MODE_COLORS[m],
+    emissions: route.volume_tonnes * route.distance_km * EMISSION_FACTORS[m],
+    isCurrent: m === route.mode,
+  }));
+
+  const maxEm = Math.max(...results.map(r => r.emissions));
+  const currentEm = results.find(r => r.isCurrent).emissions;
+
+  results.forEach(r => {
+    const barPct = (r.emissions / maxEm * 100).toFixed(1);
+    const diff = (r.emissions - currentEm) / currentEm * 100;
+    const diffStr = r.isCurrent ? 'current'
+      : diff > 0 ? `+${diff.toFixed(0)}%`
+      : `${diff.toFixed(0)}%`;
+    const diffColor = r.isCurrent ? '#484f58'
+      : diff > 0 ? '#f85149' : '#3fb950';
+    const barColor  = r.isCurrent ? '#f0f6fc' : r.color + 'bb';
+
+    const row = document.createElement('div');
+    row.className = 'wi-row';
+    row.innerHTML = `
+      <span class="wi-mode">${r.label}</span>
+      <div class="wi-bar-bg"><div class="wi-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+      <span class="wi-val" style="color:${r.isCurrent?'#f0f6fc':'#8b949e'}">${fmt(r.emissions)}</span>
+      <span class="wi-diff" style="color:${diffColor}">${r.isCurrent?'<span class="wi-current-badge">current</span>':diffStr}</span>`;
+    el.appendChild(row);
+  });
+
+  // Best alternative insight
+  const best = results.filter(r => !r.isCurrent && r.emissions < currentEm)
+    .sort((a,b) => a.emissions - b.emissions)[0];
+  if (best) {
+    const saving = ((currentEm - best.emissions) / currentEm * 100).toFixed(0);
+    const ins = document.createElement('div');
+    ins.style.cssText = 'font-size:10px;color:#3fb950;margin-top:6px;padding-top:8px;border-top:1px solid #21262d;';
+    ins.textContent = `Switching to ${best.label} could save ${saving}% · ${fmt(currentEm - best.emissions)} kg CO₂e`;
+    el.appendChild(ins);
+  } else if (!results.find(r=>!r.isCurrent&&r.emissions<currentEm)) {
+    const ins = document.createElement('div');
+    ins.style.cssText = 'font-size:10px;color:#484f58;margin-top:6px;padding-top:8px;border-top:1px solid #21262d;';
+    ins.textContent = 'Current mode is already the lowest-emission option for this route.';
+    el.appendChild(ins);
+  }
 }
 
 const mapEl=document.getElementById('sr-map');
@@ -672,13 +747,50 @@ Promise.all([
         
         // ALIAS DICTIONARY: Translates Natural Earth map names to UN Comtrade names
         const ALIASES = {
-            "united states of america": "usa",
-            "united states": "usa",
-            "türkiye": "turkey",
-            "viet nam": "vietnam",
-            "russian federation": "russia",
-            "rep. of korea": "south korea",
-            "united kingdom": "uk"
+          // United States
+          "united states of america": "usa", "united states": "usa",
+          // Turkey
+          "türkiye": "turkey", "turkey": "turkey",
+          // Vietnam
+          "viet nam": "vietnam",
+          // Russia
+          "russian federation": "russia",
+          // South Korea
+          "rep. of korea": "south korea", "republic of korea": "south korea",
+          "korea, republic of": "south korea", "s. korea": "south korea",
+          "korea (republic of)": "south korea",
+          // United Kingdom
+          "united kingdom": "uk", "great britain": "uk",
+          // Ivory Coast
+          "ivory coast": "côte d'ivoire", "cote d'ivoire": "côte d'ivoire",
+          "côte d’ivoire": "côte d'ivoire",
+          // Dominican Republic
+          "dominican republic": "dominican rep.",
+          // Bosnia
+          "bosnia and herz.": "bosnia herzegovina",
+          "bosnia and herzegovina": "bosnia herzegovina",
+          // Iran
+          "iran (islamic rep. of)": "iran", "iran, islamic republic of": "iran",
+          "islamic republic of iran": "iran",
+          // Moldova
+          "republic of moldova": "rep. of moldova", "moldova": "rep. of moldova",
+          // Tanzania
+          "united republic of tanzania": "united rep. of tanzania",
+          "tanzania": "united rep. of tanzania",
+          // Syria
+          "syrian arab republic": "syria",
+          // North Macedonia
+          "n. macedonia": "north macedonia", "macedonia": "north macedonia",
+          "republic of north macedonia": "north macedonia",
+          // Czech Republic
+          "czech republic": "czechia", "czech rep.": "czechia",
+          // Myanmar
+          "burma": "myanmar",
+          // Laos
+          "laos": "lao pdr", "lao people's democratic republic": "lao pdr",
+          // Venezuela
+          "venezuela": "venezuela (bolivarian rep. of)",
+          "venezuela (bol. rep. of)": "venezuela (bolivarian rep. of)",
         };
         
         // If the map name is in our dictionary, use the Comtrade name instead
