@@ -104,7 +104,7 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #detail { display: none; flex-direction: column; gap: 14px; }
 #country-info { display: none; flex-direction: column; gap: 10px; }
 
-.plbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: #484f58; text-transform: uppercase; margin-bottom: 6px; }
+.plbl { font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; color: #ffffff; text-transform: uppercase; margin-bottom: 6px; }
 .scard { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; }
 .snum { font-size: 24px; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
 .ssub { font-size: 11px; color: #484f58; margin-top: 3px; }
@@ -180,11 +180,11 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
         </button>
         <button id="altmode-toggle" class="view-toggle" onclick="toggleAltMode()">
           <span class="vt-switch"></span>
-          <span>Alt mode saves CO₂</span>
+          <span>Alt Transportation (saves CO₂)</span>
         </button>
         <button id="althop-toggle" class="view-toggle" onclick="toggleAltHop()">
           <span class="vt-switch"></span>
-          <span>Multi-hop saves CO₂</span>
+          <span>Alt Routes (saves CO₂)</span>
         </button>
       </div>
       <div id="legend"></div>
@@ -292,6 +292,65 @@ function fmt(v) {
   return Math.round(v).toString();
 }
 
+// ── Transport feasibility ────────────────────────────────────────────
+const LANDLOCKED_COUNTRIES = new Set([
+  'AFG','AND','ARM','AUT','AZE','BLR','BOL','BFA','BDI','CAF',
+  'CZE','ETH','HUN','KGZ','LIE','LUX','MKD','MDA','MNG','NPL',
+  'PRY','RWA','SMR','SRB','SVK','SSD','SWZ','TJK','UGA','UZB','ZMB','ZWE'
+]);
+
+// Countries mapped to their connected landmass for road/rail feasibility.
+// Island nations and archipelagos get a unique key matching their ISO code
+// so they never share a landmass with another country.
+const COUNTRY_LANDMASS = (function() {
+  const EA = 'EA'; // Eurasia + Africa (all connected by land)
+  const AM = 'AM'; // Americas (connected via Central America)
+  return {
+    // Mainland Asia
+    CHN:EA, IND:EA, PAK:EA, BGD:EA, AFG:EA, IRN:EA, IRQ:EA,
+    KAZ:EA, KGZ:EA, TJK:EA, TKM:EA, UZB:EA, RUS:EA, MNG:EA,
+    MMR:EA, THA:EA, KHM:EA, LAO:EA, VNM:EA, MYS:EA, SGP:EA,
+    PRK:EA, KOR:EA,
+    // Middle East
+    ARM:EA, AZE:EA, GEO:EA, SYR:EA, LBN:EA, JOR:EA, ISR:EA,
+    SAU:EA, ARE:EA, OMN:EA, YEM:EA, KWT:EA, QAT:EA, BHR:EA,
+    // Europe (mainland + UK/Ireland via Channel Tunnel / RoRo ferry)
+    UKR:EA, BLR:EA, MDA:EA, ROU:EA, BGR:EA, SRB:EA, MKD:EA,
+    MNE:EA, BIH:EA, HRV:EA, SVN:EA, HUN:EA, SVK:EA, CZE:EA,
+    POL:EA, DEU:EA, AUT:EA, CHE:EA, LIE:EA, LUX:EA, BEL:EA,
+    NLD:EA, FRA:EA, ESP:EA, PRT:EA, AND:EA, GBR:EA, IRL:EA,
+    DNK:EA, SWE:EA, NOR:EA, FIN:EA, EST:EA, LVA:EA, LTU:EA,
+    GRC:EA, ALB:EA, SMR:EA, ITA:EA,
+    // Africa (connected to Eurasia via Sinai Peninsula)
+    EGY:EA, LBY:EA, TUN:EA, DZA:EA, MAR:EA, MRT:EA, MLI:EA,
+    NER:EA, NGA:EA, BFA:EA, CIV:EA, BEN:EA, CMR:EA, CAF:EA,
+    TCD:EA, SDN:EA, SSD:EA, ETH:EA, ERI:EA, DJI:EA, SOM:EA,
+    KEN:EA, UGA:EA, RWA:EA, BDI:EA, TZA:EA, ZAF:EA, MOZ:EA,
+    ZMB:EA, ZWE:EA, BWA:EA, NAM:EA, SWZ:EA, LSO:EA, COD:EA,
+    COG:EA, GAB:EA, GNQ:EA, AGO:EA,
+    // Americas (North + South connected via Central America)
+    USA:AM, CAN:AM, MEX:AM, GTM:AM, BLZ:AM, HND:AM, SLV:AM,
+    NIC:AM, CRI:AM, PAN:AM, COL:AM, VEN:AM, GUY:AM, SUR:AM,
+    BRA:AM, ECU:AM, PER:AM, BOL:AM, PRY:AM, CHL:AM, ARG:AM, URY:AM,
+    // Islands — unique keys so they never share a landmass with another country
+    JPN:'JPN', AUS:'AUS', NZL:'NZL', IDN:'IDN', PHL:'PHL',
+    LKA:'LKA', JAM:'JAM', DOM:'DOM', MDG:'MDG', CYP:'CYP',
+  };
+}());
+
+function feasibleModes(fromISO, toISO) {
+  const modes = new Set(['Air']); // air is always feasible
+  if (!(LANDLOCKED_COUNTRIES.has(fromISO) && LANDLOCKED_COUNTRIES.has(toISO))) {
+    modes.add('Ocean');
+  }
+  const fLM = COUNTRY_LANDMASS[fromISO], tLM = COUNTRY_LANDMASS[toISO];
+  if (fLM && tLM && fLM === tLM) {
+    modes.add('Road');
+    modes.add('Rail');
+  }
+  return modes;
+}
+
 // ── Overview: top 60 corridors by combined emissions ────────────────────────
 const OVERVIEW_N = 60;
 function aggregateRoutes(filtered) {
@@ -336,7 +395,7 @@ function updateToggleBtn() {
   const btn = document.getElementById('detail-toggle');
   const lbl = document.getElementById('vt-text');
   if (detailMode) { btn.classList.add('on');  lbl.textContent = 'All routes'; }
-  else            { btn.classList.remove('on'); lbl.textContent = 'Top corridors'; }
+  else            { btn.classList.remove('on'); lbl.textContent = 'Top routes'; }
 }
 
 function toggleAltMode() {
@@ -430,11 +489,13 @@ function renderDefaultPanel() {
 
   el.className='';
 
-  // Annotate every route with its best what-if saving
+  // Annotate every route with its best feasible what-if saving
   const annotated = vis.map(r=>{
+    const feasible = feasibleModes(r.fromISO, r.toISO);
     const alts = Object.entries(EMISSION_FACTORS)
-      .filter(([m])=>m!==r.mode)
+      .filter(([m])=>m!==r.mode && feasible.has(m))
       .map(([m,ef])=>({mode:m, em: r.volume_tonnes*r.distance_km*ef}));
+    if (!alts.length) return {...r, bestAltMode: null, savingPct: 0};
     const best = alts.sort((a,b)=>a.em-b.em)[0];
     const saving = (r.total_emissions_kgco2e - best.em) / r.total_emissions_kgco2e * 100;
     return {...r, bestAltMode: best.mode, savingPct: saving};
@@ -775,13 +836,16 @@ function renderWhatIf(route) {
   const el = document.getElementById('d-whatif');
   el.innerHTML = '';
 
-  const results = MODE_ORDER.map(m => ({
-    mode: m,
-    label: MODE_LABELS[m],
-    color: MODE_COLORS[m],
-    emissions: route.volume_tonnes * route.distance_km * EMISSION_FACTORS[m],
-    isCurrent: m === route.mode,
-  }));
+  const feasible = feasibleModes(route.fromISO, route.toISO);
+  const results = MODE_ORDER
+    .filter(m => m === route.mode || feasible.has(m))
+    .map(m => ({
+      mode: m,
+      label: MODE_LABELS[m],
+      color: MODE_COLORS[m],
+      emissions: route.volume_tonnes * route.distance_km * EMISSION_FACTORS[m],
+      isCurrent: m === route.mode,
+    }));
 
   const maxEm = Math.max(...results.map(r => r.emissions));
   const currentEm = results.find(r => r.isCurrent).emissions;
@@ -840,7 +904,10 @@ Promise.all([
   ALT_MODE_ROUTE_IDS = new Set(
     ROUTES.filter(r => {
       const curEm = r.volume_tonnes * r.distance_km * EMISSION_FACTORS[r.mode];
-      return Object.entries(EMISSION_FACTORS).some(([m,ef]) => m!==r.mode && r.volume_tonnes*r.distance_km*ef < curEm);
+      const feasible = feasibleModes(r.fromISO, r.toISO);
+      return Object.entries(EMISSION_FACTORS).some(([m,ef]) =>
+        m !== r.mode && feasible.has(m) && r.volume_tonnes*r.distance_km*ef < curEm
+      );
     }).map(r => r.id)
   );
   ALT_HOP_PAIRS = new Set(

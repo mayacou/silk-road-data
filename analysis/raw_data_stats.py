@@ -51,7 +51,7 @@ def run_full_audit():
 
     # 1. TEMPORAL
     print("\n" + "="*30)
-    print("1. TEMPORAL")
+    print("1. TEMPORAL AUDIT")
     print("="*30)
     year_counts = df['refYear'].value_counts().sort_index()
     for yr, count in year_counts.items():
