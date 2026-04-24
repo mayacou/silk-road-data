@@ -350,9 +350,7 @@ function updateCounter() {
   const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
   const total = vis.reduce((s,r)=>s+r.total_emissions_kgco2e, 0);
   const el = document.getElementById('ec-val');
-  el.textContent = fmt(total);
-  // Color shifts red when high, teal when low
-  const pct = total / Math.max(...ROUTES.map(r=>r.total_emissions_kgco2e)) / vis.length;
+  el.textContent = vis.length === 0 ? '—' : fmt(total);
   el.style.color = '#f0f6fc';
 }
 
@@ -422,7 +420,7 @@ function buildControls() {
     b.className='fab-btn'; b.textContent=m.label;
     b.style.cssText=`color:${m.color};border-color:${m.color}55;background:${m.color}15;`;
     b.onclick=()=>{
-      if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
+      if(activeFabs.has(k)){activeFabs.delete(k);b.classList.add('off');}
       else{activeFabs.add(k);b.classList.remove('off');}
       updateCounter(); renderRoutes();
     };
@@ -433,7 +431,7 @@ function buildControls() {
     const b=document.createElement('button');
     b.className='mode-btn on'; b.textContent=MODES[k];
     b.onclick=()=>{
-      if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
+      if(activeModes.has(k)){activeModes.delete(k);b.classList.remove('on');}
       else{activeModes.add(k);b.classList.add('on');}
       updateCounter(); renderRoutes();
     };
