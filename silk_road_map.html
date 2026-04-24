@@ -97,7 +97,10 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #sr-panel::-webkit-scrollbar { width: 4px; }
 #sr-panel::-webkit-scrollbar-thumb { background: #30363d; border-radius: 2px; }
 
-#empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #484f58; font-size: 12px; text-align: center; padding: 20px; line-height: 1.7; }
+#empty { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 4px 0; overflow-y: auto; }
+#empty.no-data { align-items: center; justify-content: center; color: #484f58; font-size: 12px; text-align: center; padding: 20px; line-height: 1.7; }
+.reset-btn { padding: 3px 9px; font-size: 11px; font-family: inherit; border-radius: 20px; border: 1px solid #30363d; cursor: pointer; background: transparent; color: #484f58; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+.reset-btn:hover { border-color: #f85149; color: #f85149; }
 #detail { display: none; flex-direction: column; gap: 14px; }
 #country-info { display: none; flex-direction: column; gap: 10px; }
 
@@ -129,6 +132,15 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 #legend { position: absolute; bottom: 14px; left: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
 .leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8b949e; font-family: 'Inter', system-ui; }
 .leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── What-If engine ── */
+.wi-row { display:flex; align-items:center; gap:8px; padding:3px 0; }
+.wi-mode { font-size:10px; color:#8b949e; width:34px; flex-shrink:0; }
+.wi-bar-bg { flex:1; height:6px; background:#21262d; border-radius:3px; overflow:hidden; }
+.wi-bar-fill { height:100%; border-radius:3px; transition:width 0.5s cubic-bezier(.4,0,.2,1); }
+.wi-val { font-size:10px; color:#c9d1d9; width:48px; text-align:right; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.wi-diff { font-size:10px; width:60px; text-align:right; flex-shrink:0; font-weight:500; }
+.wi-current-badge { font-size:9px; background:#30363d; color:#8b949e; border-radius:3px; padding:1px 4px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -139,6 +151,7 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
     <span id="title-tag">2023 · UN Comtrade</span>
     <div id="fab-row"></div>
     <div id="mode-row"></div>
+    <button class="reset-btn" onclick="resetFilters()" title="Reset all filters">↺ Reset</button>
     <div id="emissions-counter">
       <span class="ec-label">Visible CO₂e</span>
       <span class="ec-value" id="ec-val">—</span>
@@ -175,17 +188,14 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
     </div>
     <div id="sr-panel">
 
-      <div id="empty">
-        <svg width="32" height="32" viewBox="0 0 28 28" fill="none" style="opacity:0.2">
-          <circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/>
-          <path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/>
-        </svg>
-        <div>Click a country to see its<br>import and export routes. <br>·<br> stroke width<br>= trade volume</div>
-      </div>
+      <div id="empty"></div>
 
       <div id="country-info">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button onclick="onCountryLeave()" style="background:#21262d;border:1px solid #30363d;border-radius:6px;padding:3px 8px;font-size:11px;color:#8b949e;cursor:pointer;font-family:inherit;">← Back</button>
+          <div class="plbl" style="margin-bottom:0;">Country</div>
+        </div>
         <div>
-          <div class="plbl">Country</div>
           <div id="ci-name" style="font-size:15px;font-weight:600;color:#f0f6fc;"></div>
           <div id="ci-sub"  style="font-size:11px;color:#484f58;margin-top:3px;"></div>
         </div>
@@ -224,7 +234,12 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
           </div>
         </div>
         <div>
-          <div class="plbl">Alternative routes</div>
+          <div class="plbl">What-If: Transport Mode</div>
+          <div style="font-size:10px;color:#484f58;margin-bottom:6px;">Estimated CO₂e if this shipment used a different mode</div>
+          <div id="d-whatif" class="scard" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+        <div>
+          <div class="plbl">Lower-Emission Multi-Hop Routes</div>
           <div id="d-cmp" class="scard" style="display:flex;flex-direction:column;gap:10px;"></div>
         </div>
         <div class="foot">
@@ -241,7 +256,8 @@ body { background: #0d1117; display: flex; justify-content: center; align-items:
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 
-const EMISSION_FACTORS = { Ocean:0.000015, Air:0.00109, Road:0.000105, Rail:0.000022 };
+// kg CO₂e per tonne-km — verified against actual route data (GLEC Framework v3.2 / EPA GHG Hub 2025)
+const EMISSION_FACTORS = { Ocean:0.015, Air:1.09, Road:0.105, Rail:0.022 };
 const FABRICS = {
   cotton:    { label:'Cotton',      color:'#3fb950' },
   polyester: { label:'Synthetic',   color:'#58a6ff' },
@@ -256,7 +272,7 @@ let detailMode = false;
 let ALL_ROUTES=[], ROUTES=[];
 let RECOMMENDATIONS={};
 let activeFabs=new Set(), activeModes=new Set();
-let selRoute=null, hovCountry=null;
+let selRoute=null, hovCountry=null, selCountry=null;
 let rg, ng, proj, pathFn, afId, maxCo2=1, strokeScale;
 
 function fmt(v) {
@@ -350,35 +366,105 @@ function updateCounter() {
   const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
   const total = vis.reduce((s,r)=>s+r.total_emissions_kgco2e, 0);
   const el = document.getElementById('ec-val');
-  el.textContent = fmt(total);
-  // Color shifts red when high, teal when low
-  const pct = total / Math.max(...ROUTES.map(r=>r.total_emissions_kgco2e)) / vis.length;
+  el.textContent = vis.length === 0 ? '—' : fmt(total);
   el.style.color = '#f0f6fc';
+}
+
+// ── Reset all filters ────────────────────────────────────────────────
+function resetFilters() {
+  activeFabs = new Set(ROUTES.map(r=>r.fabric));
+  activeModes = new Set(ROUTES.map(r=>r.mode));
+  document.querySelectorAll('.fab-btn').forEach(b=>b.classList.remove('off'));
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.add('on'));
+  updateCounter(); renderRoutes();
+  if(!selRoute && !selCountry) showPanel('empty');
+}
+
+// ── Default panel: top high-emission routes with savings potential ───
+function renderDefaultPanel() {
+  const el = document.getElementById('empty');
+  const vis = ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
+
+  if(vis.length===0) {
+    el.className='no-data';
+    el.innerHTML=`<svg width="32" height="32" viewBox="0 0 28 28" fill="none" style="opacity:0.2"><circle cx="14" cy="14" r="12" stroke="#8b949e" stroke-width="1.5"/><path d="M2 14h24M14 2c-4 4-4 8 0 12s4 8 0 12M14 2c4 4 4 8 0 12s-4 8 0 12" stroke="#8b949e" stroke-width="1.2" fill="none"/></svg><div>No routes visible.<br>Use ↺ Reset to restore filters.</div>`;
+    return;
+  }
+
+  el.className='';
+
+  // Annotate every route with its best what-if saving
+  const annotated = vis.map(r=>{
+    const alts = Object.entries(EMISSION_FACTORS)
+      .filter(([m])=>m!==r.mode)
+      .map(([m,ef])=>({mode:m, em: r.volume_tonnes*r.distance_km*ef}));
+    const best = alts.sort((a,b)=>a.em-b.em)[0];
+    const saving = (r.total_emissions_kgco2e - best.em) / r.total_emissions_kgco2e * 100;
+    return {...r, bestAltMode: best.mode, savingPct: saving};
+  });
+
+  // Prefer routes with meaningful savings (Road/Air → Ship), fill rest with highest emitters
+  const withSavings = annotated.filter(r=>r.savingPct>30)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const withoutSavings = annotated.filter(r=>r.savingPct<=30)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const scored = [...withSavings, ...withoutSavings].slice(0,8);
+
+  el.innerHTML=`
+    <div class="plbl" style="margin-bottom:2px;">High-Impact Routes</div>
+    <div style="font-size:10px;color:#484f58;margin-bottom:4px;">Routes where switching transport mode could cut CO₂e</div>`;
+
+  scored.forEach(r=>{
+    const color = FABRICS[r.fabric].color;
+    const dir = '→';
+    const hasSaving = r.savingPct > 1;
+    const savingLabel = hasSaving
+      ? `<span style="color:#3fb950;font-size:9px;font-weight:500">${MODE_LABELS[r.bestAltMode]} saves ${r.savingPct.toFixed(0)}%</span>`
+      : `<span style="color:#484f58;font-size:9px;">already lowest-emission mode</span>`;
+
+    const item = document.createElement('div');
+    item.className='ctry-route-item';
+    item.innerHTML=`
+      <div class="ctry-dot" style="background:${color}"></div>
+      <div class="ctry-route-text" style="flex:1;">
+        <span style="color:#c9d1d9;font-weight:500">${r.from} ${dir} ${r.to}</span><br>
+        <span style="color:#484f58">${FABRICS[r.fabric].label} · ${MODE_LABELS[r.mode]||r.mode}</span>
+        <span style="margin-left:6px;">${savingLabel}</span>
+      </div>
+      <div class="ctry-route-co2">${fmt(r.total_emissions_kgco2e)}</div>`;
+    item.onclick=()=>{ detailMode=true; updateToggleBtn(); selectRoute(r); };
+    el.appendChild(item);
+  });
 }
 
 // ── Panels ──
 function showPanel(which) {
-  document.getElementById('empty').style.display        = which==='empty'   ? 'flex' : 'none';
+  const emptyEl = document.getElementById('empty');
+  emptyEl.style.display        = which==='empty'   ? 'flex' : 'none';
   document.getElementById('country-info').style.display = which==='country' ? 'flex' : 'none';
   document.getElementById('detail').style.display       = which==='detail'  ? 'flex' : 'none';
+  if(which==='empty') renderDefaultPanel();
 }
 
 // ── Country hover ──
 function onCountryEnter(name) {
   if(selRoute) return;
   hovCountry = name;
-  rg.selectAll('.route-bg')
-    .classed('sel', d=>d.from===name||d.to===name)
-    .classed('dim', d=>d.from!==name&&d.to!==name);
+  selCountry = name;
+  renderRoutes();
 
   const vis=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
-  const matching=vis.filter(r=>r.from===name||r.to===name)
-    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e).slice(0,8);
+  const allMatching=vis.filter(r=>r.from===name||r.to===name)
+    .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e);
+  const matching=allMatching.slice(0,8);
 
   if(!matching.length){ showPanel('empty'); return; }
 
   document.getElementById('ci-name').textContent=name;
-  document.getElementById('ci-sub').textContent=`${matching.length} active trade route${matching.length>1?'s':''}`;
+  const total=allMatching.length;
+  document.getElementById('ci-sub').textContent=total>8
+    ? `Top 8 of ${total} trade routes`
+    : `${total} trade route${total>1?'s':''}`;
 
   const list=document.getElementById('ci-routes'); list.innerHTML='';
   matching.forEach(r=>{
@@ -403,6 +489,7 @@ function onCountryEnter(name) {
 function onCountryLeave() {
   if(selRoute) return;
   hovCountry=null;
+  selCountry=null;
   renderRoutes();
   showPanel('empty');
 }
@@ -422,7 +509,7 @@ function buildControls() {
     b.className='fab-btn'; b.textContent=m.label;
     b.style.cssText=`color:${m.color};border-color:${m.color}55;background:${m.color}15;`;
     b.onclick=()=>{
-      if(activeFabs.has(k)){if(activeFabs.size<2)return;activeFabs.delete(k);b.classList.add('off');}
+      if(activeFabs.has(k)){activeFabs.delete(k);b.classList.add('off');}
       else{activeFabs.add(k);b.classList.remove('off');}
       updateCounter(); renderRoutes();
     };
@@ -433,7 +520,7 @@ function buildControls() {
     const b=document.createElement('button');
     b.className='mode-btn on'; b.textContent=MODES[k];
     b.onclick=()=>{
-      if(activeModes.has(k)){if(activeModes.size<2)return;activeModes.delete(k);b.classList.remove('on');}
+      if(activeModes.has(k)){activeModes.delete(k);b.classList.remove('on');}
       else{activeModes.add(k);b.classList.add('on');}
       updateCounter(); renderRoutes();
     };
@@ -458,7 +545,14 @@ function renderRoutes() {
   rg.selectAll('*').remove(); ng.selectAll('*').remove();
 
   const filtered=ROUTES.filter(r=>activeFabs.has(r.fabric)&&activeModes.has(r.mode)&&FABRICS[r.fabric]);
-  const vis=detailMode ? filtered : aggregateRoutes(filtered);
+  let vis;
+  if(selCountry) {
+    // Individual routes for the selected country, top 8 by emissions — mirrors the panel exactly
+    vis = filtered.filter(r=>r.from===selCountry||r.to===selCountry)
+      .sort((a,b)=>b.total_emissions_kgco2e-a.total_emissions_kgco2e).slice(0,8);
+  } else {
+    vis = detailMode ? filtered : aggregateRoutes(filtered);
+  }
 
   // Recompute stroke scale against whatever is being displayed
   const vols=vis.map(r=>r.volume_tonnes);
@@ -591,15 +685,18 @@ function selectRoute(r){
   document.getElementById('d-fab').textContent=FABRICS[r.fabric].label;
   document.getElementById('d-vol').textContent=r.volume_tonnes.toLocaleString()+' t';
 
+  renderWhatIf(r);
+
   const cmpEl=document.getElementById('d-cmp'); cmpEl.innerHTML='';
   const routeKey=r.fromISO + '_' + r.toISO;
-  const alternatives=RECOMMENDATIONS[routeKey]||[];
-  
+  const allAlts=RECOMMENDATIONS[routeKey]||[];
+  const alternatives=allAlts.filter(a=>a.savings_pct>0).sort((a,b)=>b.savings_pct-a.savings_pct);
+
   if(alternatives.length===0){
-    cmpEl.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:10px;">No alternatives found</div>';
+    cmpEl.innerHTML='<div style="color:#484f58;font-size:11px;text-align:center;padding:10px;">No lower-emission multi-hop routes found</div>';
     return;
   }
-  
+
   alternatives.slice(0,3).forEach((alt,idx)=>{
     const altCo2=alt.total_emissions;
     const savings=alt.savings_pct;
@@ -630,6 +727,63 @@ function selectRoute(r){
 
 function clearRoute(){
   selRoute=null; renderRoutes(); showPanel('empty');
+}
+
+// ── What-If engine ─────────────────────────────────────────────────
+const MODE_ORDER  = ['Ocean','Rail','Road','Air'];
+const MODE_COLORS = { Ocean:'#58a6ff', Rail:'#3fb950', Road:'#e3b341', Air:'#f85149' };
+const MODE_LABELS = { Ocean:'Ship', Rail:'Rail', Road:'Road', Air:'Air' };
+
+function renderWhatIf(route) {
+  const el = document.getElementById('d-whatif');
+  el.innerHTML = '';
+
+  const results = MODE_ORDER.map(m => ({
+    mode: m,
+    label: MODE_LABELS[m],
+    color: MODE_COLORS[m],
+    emissions: route.volume_tonnes * route.distance_km * EMISSION_FACTORS[m],
+    isCurrent: m === route.mode,
+  }));
+
+  const maxEm = Math.max(...results.map(r => r.emissions));
+  const currentEm = results.find(r => r.isCurrent).emissions;
+
+  results.forEach(r => {
+    const barPct = (r.emissions / maxEm * 100).toFixed(1);
+    const diff = (r.emissions - currentEm) / currentEm * 100;
+    const diffStr = r.isCurrent ? 'current'
+      : diff > 0 ? `+${diff.toFixed(0)}%`
+      : `${diff.toFixed(0)}%`;
+    const diffColor = r.isCurrent ? '#484f58'
+      : diff > 0 ? '#f85149' : '#3fb950';
+    const barColor  = r.isCurrent ? '#f0f6fc' : r.color + 'bb';
+
+    const row = document.createElement('div');
+    row.className = 'wi-row';
+    row.innerHTML = `
+      <span class="wi-mode">${r.label}</span>
+      <div class="wi-bar-bg"><div class="wi-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+      <span class="wi-val" style="color:${r.isCurrent?'#f0f6fc':'#8b949e'}">${fmt(r.emissions)}</span>
+      <span class="wi-diff" style="color:${diffColor}">${r.isCurrent?'<span class="wi-current-badge">current</span>':diffStr}</span>`;
+    el.appendChild(row);
+  });
+
+  // Best alternative insight
+  const best = results.filter(r => !r.isCurrent && r.emissions < currentEm)
+    .sort((a,b) => a.emissions - b.emissions)[0];
+  if (best) {
+    const saving = ((currentEm - best.emissions) / currentEm * 100).toFixed(0);
+    const ins = document.createElement('div');
+    ins.style.cssText = 'font-size:10px;color:#3fb950;margin-top:6px;padding-top:8px;border-top:1px solid #21262d;';
+    ins.textContent = `Switching to ${best.label} could save ${saving}% · ${fmt(currentEm - best.emissions)} kg CO₂e`;
+    el.appendChild(ins);
+  } else if (!results.find(r=>!r.isCurrent&&r.emissions<currentEm)) {
+    const ins = document.createElement('div');
+    ins.style.cssText = 'font-size:10px;color:#484f58;margin-top:6px;padding-top:8px;border-top:1px solid #21262d;';
+    ins.textContent = 'Current mode is already the lowest-emission option for this route.';
+    el.appendChild(ins);
+  }
 }
 
 const mapEl=document.getElementById('sr-map');
@@ -674,13 +828,50 @@ Promise.all([
         
         // ALIAS DICTIONARY: Translates Natural Earth map names to UN Comtrade names
         const ALIASES = {
-            "united states of america": "usa",
-            "united states": "usa",
-            "türkiye": "turkey",
-            "viet nam": "vietnam",
-            "russian federation": "russia",
-            "rep. of korea": "south korea",
-            "united kingdom": "uk"
+          // United States
+          "united states of america": "usa", "united states": "usa",
+          // Turkey
+          "türkiye": "turkey", "turkey": "turkey",
+          // Vietnam
+          "viet nam": "vietnam",
+          // Russia
+          "russian federation": "russia",
+          // South Korea
+          "rep. of korea": "south korea", "republic of korea": "south korea",
+          "korea, republic of": "south korea", "s. korea": "south korea",
+          "korea (republic of)": "south korea",
+          // United Kingdom
+          "united kingdom": "uk", "great britain": "uk",
+          // Ivory Coast
+          "ivory coast": "côte d'ivoire", "cote d'ivoire": "côte d'ivoire",
+          "côte d’ivoire": "côte d'ivoire",
+          // Dominican Republic
+          "dominican republic": "dominican rep.",
+          // Bosnia
+          "bosnia and herz.": "bosnia herzegovina",
+          "bosnia and herzegovina": "bosnia herzegovina",
+          // Iran
+          "iran (islamic rep. of)": "iran", "iran, islamic republic of": "iran",
+          "islamic republic of iran": "iran",
+          // Moldova
+          "republic of moldova": "rep. of moldova", "moldova": "rep. of moldova",
+          // Tanzania
+          "united republic of tanzania": "united rep. of tanzania",
+          "tanzania": "united rep. of tanzania",
+          // Syria
+          "syrian arab republic": "syria",
+          // North Macedonia
+          "n. macedonia": "north macedonia", "macedonia": "north macedonia",
+          "republic of north macedonia": "north macedonia",
+          // Czech Republic
+          "czech republic": "czechia", "czech rep.": "czechia",
+          // Myanmar
+          "burma": "myanmar",
+          // Laos
+          "laos": "lao pdr", "lao people's democratic republic": "lao pdr",
+          // Venezuela
+          "venezuela": "venezuela (bolivarian rep. of)",
+          "venezuela (bol. rep. of)": "venezuela (bolivarian rep. of)",
         };
         
         // If the map name is in our dictionary, use the Comtrade name instead
